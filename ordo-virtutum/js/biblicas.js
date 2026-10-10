@@ -623,6 +623,21 @@
   const montarias = {};
   P.montado = null;
   const SENTADO = { hL: -1.2, kL: 1.1, fL: 0, hR: -1.2, kR: 1.1, fR: 0 };
+  // no co-op: o colega montado aparece montado (Q = o colega, k = 'jumento' | 'cavalo' | null)
+  const montariasDe = new Map();
+  BI.montariaDe = function (Q, k, dt) {
+    let m = montariasDe.get(Q);
+    if (m && m.k !== k) { scene.remove(m.g); montariasDe.delete(Q); m = null; }
+    if (!k || !ANIMAIS[k] || !Q.heroi || !Q.heroi.g.visible) { if (m) m.g.visible = false; return; }
+    if (!m) { m = { k, g: modeloMontaria(k), ph: 0, ult: { x: Q.pos.x, z: Q.pos.z } }; scene.add(m.g); montariasDe.set(Q, m); }
+    m.g.visible = true;
+    const mov = Math.hypot(Q.pos.x - m.ult.x, Q.pos.z - m.ult.z); m.ult.x = Q.pos.x; m.ult.z = Q.pos.z;
+    m.g.position.set(Q.pos.x, Q.pos.y, Q.pos.z); m.g.rotation.y = Q.facing;
+    m.ph += mov * 2.6; const amp = Math.min(1, mov / Math.max(0.001, dt) / 4);
+    m.g.userData.pernas.forEach((p, i) => { p.rotation.x = Math.sin(m.ph + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.6 * amp; });
+    Q.heroi.g.position.y = Q.pos.y + ANIMAIS[k].alt + Math.abs(Math.sin(m.ph)) * 0.05 * amp;
+    if (Q.heroi.pernas && OV.andar) OV.andar.aplicar(Q.heroi.pernas, SENTADO, 1);
+  };
   function montar() {
     if (P.montado) { desmontar(); return; }
     const k = tem('cavalo') ? 'cavalo' : tem('jumento') ? 'jumento' : null; if (!k) return;

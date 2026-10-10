@@ -277,7 +277,7 @@
     { const p = c.W(-3, -1.85); const i = M.interativo(p.x, p.z, 1.4, () => 'Ajoelhar-se no genuflexório', () => rezar(c)); i.pessoal = true; }
     { const p = c.W(-3, -2.55); c.genuflexorio = { x: p.x, z: p.z, facing: rot + Math.PI }; }
     // uma luz quente em cada cômodo do fundo
-    { const o = c.W(-3, -3.4), q = c.W(3, -2.6); M.emissor(o.x, H(x, z) + 1.6, o.z, 0.8, 6, 0xffb060); M.emissor(q.x, H(x, z) + 3.4, q.z, 0.6, 6, 0xffb468); }
+    { const o = c.W(-3, -3.4), q = c.W(3, -2.6); [M.emissor(o.x, H(x, z) + 1.6, o.z, 0.8, 6, 0xffb060), M.emissor(q.x, H(x, z) + 3.4, q.z, 0.6, 6, 0xffb468)].forEach(e => { e.casa = true; e.dentro = true; }); }
     if (M.LOCAIS) M.LOCAIS['casa_' + regiao] = { nome: 'Casa do Peregrino', x, z, oy: -16 };
     CS.casas.push(c);
     return c;

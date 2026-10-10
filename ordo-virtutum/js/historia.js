@@ -174,11 +174,11 @@
         <div class="pl-acoes"><span class="pl-pontos"></span><button type="button" class="btn ghost" data-pl="pular">Pular</button><button type="button" class="btn" data-pl="seguir">Continuar</button></div></div>`;
     document.body.appendChild(el);
     pl = { el, cv: el.querySelector('canvas'), i: 0, t: 0, fim: null, raf: 0 };
-    el.addEventListener('click', ev => { const b = ev.target.closest('[data-pl]'); if (!b) return; if (b.dataset.pl === 'pular') fecharPrologo(); else seguirPrologo(); });
+    el.addEventListener('click', ev => { const b = ev.target.closest('[data-pl]'); if (!b || pl.espelho) return; if (b.dataset.pl === 'pular') fecharPrologo(); else seguirPrologo(); });
     addEventListener('keydown', ev => {
       if (!pl || pl.el.hidden) return;
       ev.stopImmediatePropagation(); ev.preventDefault();
-      if (ev.repeat) return;
+      if (ev.repeat || pl.espelho) return;
       if (ev.code === 'Escape') fecharPrologo(); else if (['Space', 'Enter', 'KeyE', 'ArrowRight'].includes(ev.code)) seguirPrologo();
     }, true);
     return pl;
@@ -205,10 +205,12 @@
     const v = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.7)'); c.fillStyle = v; c.fillRect(0, 0, w, h);
   }
-  function seguirPrologo() { if (pl.i < pl.lista.length - 1) { pl.i++; mostrarPainel(); } else fecharPrologo(); }
+  function seguirPrologo() { if (pl.i < pl.lista.length - 1) { pl.i++; mostrarPainel(); if (HI.aoPrologo) HI.aoPrologo('pag', pl.i); } else fecharPrologo(); }
   function fecharPrologo() {
     if (!pl || pl.el.hidden) return;
     pl.el.hidden = true; cancelAnimationFrame(pl.raf);
+    if (HI.aoPrologo && !pl.espelho) HI.aoPrologo('fim');
+    pl.espelho = false; pl.el.classList.remove('espelho');
     const fim = pl.fim; pl.fim = null; if (fim) setTimeout(fim, 30);
   }
   HI.prologo = function (qual, fim) {
@@ -218,6 +220,16 @@
     mostrarPainel(); pl.raf = requestAnimationFrame(quadro);
   };
   HI.prologoAberto = () => !!(pl && !pl.el.hidden);
+  // no co-op, o convidado vê a mesma cena e quem vira as páginas é o anfitrião
+  HI.prologoEspelho = function (qual, quem) {
+    HI.prologo(qual, null); pl.espelho = true; pl.el.classList.add('espelho');
+    const a = pl.el.querySelector('.pl-acoes'); let n = a.querySelector('.pl-espera');
+    if (!n) { n = document.createElement('span'); n.className = 'pl-espera'; a.appendChild(n); }
+    n.textContent = `${quem || 'O anfitrião'} vira as páginas…`;
+  };
+  HI.paginaPrologo = i => { if (!pl || pl.el.hidden) return; pl.i = Math.max(0, Math.min(i, pl.lista.length - 1)); mostrarPainel(); };
+  HI.fecharPrologo = () => fecharPrologo();
+  HI.espelhandoPrologo = () => !!(pl && !pl.el.hidden && pl.espelho);
   // um jogo novo começa pelo prólogo
   addEventListener('DOMContentLoaded', () => {
     if (!OV.jogo) return;

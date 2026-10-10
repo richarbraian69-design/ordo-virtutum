@@ -391,12 +391,20 @@
     for (let i = 1; i < (passo.n || 6); i++) { const a = Math.random() * Math.PI * 2, r = 1.8 + Math.random() * 4.5; pts.push([P.pos.x + Math.cos(a) * r, P.pos.z + Math.sin(a) * r]); }
     pts.forEach(([x, z], i) => { marca(x, z, 1.5, 1.15 + i * 0.08, cor); I.chuvas.push({ x, z, t: 1.15 + i * 0.08, dano: Math.round(e.def.dmg * passo.dmg), fonte: e, cor, status: (PROJ[e.def.key] || [])[1] }); });
   }
+  // a chuva: cada ponto marcado no chão recebe um projétil que cai do alto, visível para os dois
+  function queda(c) {
+    const y = M.altura(c.x, c.z), h = 9, t = 0.6, m = { x: c.x, y: y + h, z: c.z, vx: 0, vy: -(h - 0.2) / t, vz: 0, raio: 0.3, cor: c.cor };
+    I.tiroVisual(m); fx(Object.assign({ k: 'tiro' }, m));
+  }
+  I.corProjetil = key => (PROJ[key] || [0xff5a2a])[0];
+  I.impactoVisual = function (x, z, cor) { const y = M.altura(x, z); C_().faisca(x, y + 0.6, z, cor); anelChao(x, z, 0.4, 2.2, 0.35, cor); };
   function atualizarChuvas(dt) {
     const alvos = I.alvos();
     for (let i = I.chuvas.length - 1; i >= 0; i--) {
-      const c = I.chuvas[i]; c.t -= dt; if (c.t > 0) continue;
-      const y = M.altura(c.x, c.z);
-      C_().faisca(c.x, y + 0.6, c.z, c.cor); anelChao(c.x, c.z, 0.4, 2.2, 0.35, c.cor);
+      const c = I.chuvas[i]; c.t -= dt;
+      if (!c.caiu && c.t < 0.6) { c.caiu = true; queda(c); }
+      if (c.t > 0) continue;
+      I.impactoVisual(c.x, c.z, c.cor); fx({ k: 'impacto', x: c.x, z: c.z, cor: c.cor });
       for (const P of alvos) if (!P.dead && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6) ferirAlvo(P, c.dano, c.status, c.fonte, 0);
       I.chuvas.splice(i, 1);
     }
@@ -477,6 +485,17 @@
   const AJOELHADO = { hL: -1.3, kL: 1.5, fL: 0, hR: 0.1, kR: 1.5, fR: -0.5 };
 
   I.atordoar = function (e, t) { if (e.state === 'dead') return; soltarOrbe(e); e.state = 'stun'; e.t = t; };
+  // o atordoamento se vê e se ouve: um "tim" curto e estrelinhas sobre o nome do vício (para os dois jogadores)
+  M.animados.push(() => {
+    const P = OV.P; if (!P || !P.pos) return;
+    for (const e of I.lista) {
+      if (e.removed) continue;
+      const st = e.state === 'stun';
+      if (st === !!e._atord) continue;
+      e._atord = st; if (e.lab && e.lab.el) e.lab.el.classList.toggle('atordoado', st);
+      if (st && OV.audio && OV.audio.bell && Math.hypot(e.g.position.x - P.pos.x, e.g.position.z - P.pos.z) < 30) { OV.audio.bell(1760, 0.05); setTimeout(() => OV.audio.bell(2349, 0.035), 70); }
+    }
+  });
 
   I.update = function (dt) {
     const P0 = OV.P, P = P0, alvos = I.alvos();
@@ -551,7 +570,7 @@
         if (casa < 1.5 || e.voltarPreso > 1.2) { if (casa >= 1.5) e.home = { x: g.position.x, z: g.position.z }; e.state = 'idle'; e.voltarMelhor = undefined; e.voltarPreso = 0; }
       }
       else if (e.state === 'chase') {
-        if (casa > (def.leash || 32)) e.state = 'voltar';
+        if (casa > (def.leash || 32) * (alvos.length > 1 ? 2.2 : 1)) e.state = 'voltar'; // com dois jogadores, o vício persegue bem mais longe antes de desistir
         else if (playerGone) e.state = 'idle';
         else {
           g.rotation.y = turnTo(g.rotation.y, ang, 6 * dt);

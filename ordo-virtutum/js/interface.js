@@ -215,10 +215,10 @@
 
   const RULE = '<div class="rule"><span>✠</span></div>';
   const CONTROLES = `<dl class="ctl">
-    <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Andar · <kbd>Shift</kbd> segurar para correr (não gasta fôlego) · <kbd>T</kbd> liga e desliga a corrida contínua</dd>
+    <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Andar · <kbd>Shift</kbd> segurar para correr (gasta um pouco de fôlego) · <kbd>T</kbd> liga e desliga a corrida contínua</dd>
     <dt>Mouse</dt><dd>Girar a câmera</dd>
     <dt>Clique esquerdo</dt><dd>Golpe leve</dd>
-    <dt>Clique direito</dt><dd>Golpe pesado: gasta mais fôlego e atordoa</dd>
+    <dt>Clique direito</dt><dd>Golpe pesado: gasta mais fôlego e às vezes atordoa os vícios comuns</dd>
     <dt><kbd>Espaço</kbd></dt><dd>Esquiva</dd>
     <dt><kbd>Q</kbd></dt><dd>Sinal da Cruz: no instante do golpe inimigo, apara e deixa o vício atordoado</dd>
     <dt><kbd>Tab</kbd></dt><dd>Travar a câmera num alvo</dd>
@@ -284,17 +284,20 @@
     renderCri();
     setTimeout(() => nomeIn.focus({ preventScroll: true }), 30);
   };
+  const NOME_VIRT = k => { const v = (OV.VIRTUDES || []).find(x => x.k === k); return v ? v.nome : k; };
   function renderCri() {
     $('ov').querySelectorAll('[data-sexo]').forEach(b => b.setAttribute('aria-checked', b.dataset.sexo === cri.sexo ? 'true' : 'false'));
     $('ordensBox').innerHTML = Object.values(OV.ORDENS).map(o => `
       <button type="button" class="ordem${o.id === cri.ordem ? ' sel' : ''}" data-ordem="${o.id}" aria-pressed="${o.id === cri.ordem}">
-        <b>${esc(o.titulo[cri.sexo])}</b><span>${esc(o.ordem[cri.sexo])}</span><small>${esc(o.classe)} · ${esc(o.papel)}</small>
+        <b>${esc(o.titulo[cri.sexo])}</b><span>${esc(o.ordem[cri.sexo])}</span><small>${esc(o.classe)} · ${esc(o.papel)}</small><em class="alc">${esc(o.alcance || '')}</em>
       </button>`).join('');
     $('ordensBox').querySelectorAll('[data-ordem]').forEach(b => b.addEventListener('click', () => { cri.ordem = b.dataset.ordem; renderCri(); }));
     const o = OV.ORDENS[cri.ordem];
     const rows = OV.VIRTUDES.map(v => `<div class="vmini"><span>${v.nome}</span><div class="track"><div class="fill" style="width:${o.virt[v.k] * 10}%"></div></div><em>${o.virt[v.k]}</em></div>`).join('');
     $('ordemDet').innerHTML = `<p class="desc">${esc(o.descr)}</p>
-      <dl class="kv"><dt>Patrono</dt><dd>${esc(o.patrono[cri.sexo])}</dd><dt>Arma</dt><dd>${esc(o.armaNome)}</dd></dl>
+      <dl class="kv"><dt>Patrono</dt><dd>${esc(o.patrono[cri.sexo])}</dd><dt>Arma</dt><dd>${esc(o.armaNome)}</dd>
+        <dt>Alcance</dt><dd>${esc(o.alcance || '')}${OV.ALCANCE_TXT && OV.ALCANCE_TXT[o.alcance] ? ` · ${esc(OV.ALCANCE_TXT[o.alcance])}` : ''}</dd>
+        <dt>Cresce com</dt><dd>${esc(NOME_VIRT(o.atributo))} nos golpes da arma · Fé nas orações</dd></dl>
       <div class="vgrid">${rows}</div>
       ${caminhoResumo(cri.ordem, cri.sexo)}`;
     if (OV.jogo) OV.jogo.preview(cri.sexo, cri.ordem);
@@ -302,14 +305,15 @@
   function caminhoResumo(ordem, sexo) {
     const c = OV.CAMINHOS && OV.CAMINHOS[ordem]; if (!c) return '';
     const nome = typeof c.nome === 'string' ? c.nome : c.nome[sexo];
-    return `<p class="lbl">${esc(nome)}</p><ul class="cam">${c.habil.map(h => `<li><b>${esc(h.nome)}</b><span>${h.tecla ? 'tecla ' + h.tecla : 'passiva'} · nível ${h.nivel}</span></li>`).join('')}</ul>`;
+    const cresce = h => (OV.habilidades && OV.habilidades.cresceCom ? OV.habilidades.cresceCom(h, ordem) : '');
+    return `<p class="lbl">${esc(nome)}</p><ul class="cam">${c.habil.map(h => { const cc = cresce(h); return `<li><b>${esc(h.nome)}</b><span>${h.tecla ? 'tecla ' + h.tecla : 'passiva'} · nível ${h.nivel}${cc ? ` · cresce com ${esc(cc)}` : ''}</span></li>`; }).join('')}</ul>`;
   }
   ui.dadosCriacao = () => ({ nome: (cri.nome || '').trim(), sexo: cri.sexo, ordem: cri.ordem });
 
   /* ---- pausa: um menu curto; opções e tutoriais têm cada um o seu painel ---- */
   const TUTORIAIS = [
-    ['Andar e olhar', [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', 'Andar'], ['<kbd>Shift</kbd>', 'Segurar para correr (não gasta fôlego)'], ['<kbd>T</kbd>', 'Liga e desliga a corrida contínua'], ['Mouse', 'Girar a câmera'], ['<kbd>Tab</kbd>', 'Travar a câmera num vício']]],
-    ['Combate', [['Clique esquerdo', 'Golpe leve'], ['Clique direito', 'Golpe pesado: gasta mais fôlego e atordoa'], ['<kbd>Espaço</kbd>', 'Esquiva'], ['<kbd>Q</kbd>', 'Sinal da Cruz: no instante do golpe, apara e deixa o vício atordoado. Também rebate o que ele atira de longe']]],
+    ['Andar e olhar', [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', 'Andar'], ['<kbd>Shift</kbd>', 'Segurar para correr (gasta um pouco de fôlego)'], ['<kbd>T</kbd>', 'Liga e desliga a corrida contínua'], ['Mouse', 'Girar a câmera'], ['<kbd>Tab</kbd>', 'Travar a câmera num vício']]],
+    ['Combate', [['Clique esquerdo', 'Golpe leve'], ['Clique direito', 'Golpe pesado: gasta mais fôlego e às vezes atordoa os vícios comuns'], ['<kbd>Espaço</kbd>', 'Esquiva'], ['<kbd>Q</kbd>', 'Sinal da Cruz: no instante do golpe, apara e deixa o vício atordoado. Também rebate o que ele atira de longe']]],
     ['Orações e Fé', [['<kbd>1</kbd>', 'Ave-Maria: cura'], ['<kbd>2</kbd>', 'Oração a São Miguel: luz em área'], ['<kbd>R</kbd> segurar', 'Recolhimento: recupera Fé e vida e purifica a Ira, a Preguiça e a Gula'], ['<kbd>F</kbd> <kbd>G</kbd> <kbd>V</kbd> <kbd>B</kbd>', 'Habilidades da sua ordem, conforme o nível (veja na ficha, tecla C)']]],
     ['Itens', [['<kbd>I</kbd>', 'Inventário e equipamentos'], ['<kbd>5</kbd> · <kbd>6</kbd>', 'Usar Pão abençoado · Água benta'], ['Sacerdotes', 'Abençoam os itens corrompidos que você carrega'], ['Capelas', 'O baú do peregrino é o mesmo em todas as capelas']]],
     ['Mapa e missões', [['<kbd>M</kbd>', 'Mapa: arraste para mover, use a roda do mouse para aproximar, clique num Oratório aceso para viajar'], ['<kbd>L</kbd>', 'Missões: escolha qual rastrear. A rastreada aparece no canto, no minimapa (roxo: principal; verde: secundária) e na bússola'], ['<kbd>C</kbd>', 'Ficha: virtudes, pontos para distribuir e o caminho da sua ordem'], ['<kbd>E</kbd>', 'Conversar, examinar, rezar']]],
@@ -408,11 +412,24 @@
     const itens = c.habil.slice().sort((a, b) => a.nivel - b.nivel).map(h => {
       const ok = pers.nivel >= h.nivel;
       const tag = ok ? (h.tecla ? `tecla ${h.tecla}` : 'passiva') : `nível ${h.nivel}`;
-      return `<li class="${ok ? 'ok' : ''}"><div><b>${esc(h.nome)}</b>${h.descr ? `<small>${esc(h.descr)}</small>` : ''}</div><span>${tag}</span></li>`;
+      const cc = OV.habilidades && OV.habilidades.cresceCom ? OV.habilidades.cresceCom(h, pers.ordem) : '';
+      return `<li class="${ok ? 'ok' : ''}"><div><b>${esc(h.nome)}</b>${h.descr ? `<small>${esc(h.descr)}${cc ? ` <i class="cresce">Cresce com: ${esc(cc)}.</i>` : ''}</small>` : ''}</div><span>${tag}</span></li>`;
     }).join('');
     return `<h3>${esc(OV.habilidades.nomeCaminho(c))}</h3><p class="bonus">${esc(c.bonus)}</p><ul class="hab">${itens}</ul>`;
   }
   function efeito(k, D) {
+    const ordem = OV.P.pers && OV.P.pers.ordem, d = OV.DANO_ORDEM && OV.DANO_ORDEM[ordem];
+    const arma = d && k === d.attr ? `Dano da arma: ${D.dano} (atributo da sua ordem)` : d && (k === d.tri || (k === 'justica')) ? 'Soma um pouco ao dano da arma' : '';
+    const junta = (a, b) => [a, b].filter(Boolean).join(' · ');
+    if (d) switch (k) {
+      case 'prudencia': return junta(arma, `Esquiva: invulnerável por ${String(D.iframe).replace('.', ',')} s`);
+      case 'justica': return arma || 'Soma um pouco ao dano da arma';
+      case 'fortaleza': return junta(arma, `Vida máxima: ${D.maxHp}`);
+      case 'temperanca': return junta(arma, `Fôlego máximo: ${D.maxSta}`);
+      case 'fe': return junta(arma, `Fé máxima: ${D.maxFe} · São Miguel: ${D.miguel} de dano em área`);
+      case 'esperanca': return junta(arma, `No Recolhimento: +${D.prayHp} de vida e +${D.prayFe} de Fé por segundo`);
+      case 'caridade': return junta(arma, `Ave-Maria cura ${D.cura} de vida`);
+    }
     switch (k) {
       case 'prudencia': return `Esquiva: invulnerável por ${String(D.iframe).replace('.', ',')} s`;
       case 'justica': return `Dano da arma: ${D.dano}`;

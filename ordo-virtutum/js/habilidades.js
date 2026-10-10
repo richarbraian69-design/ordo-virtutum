@@ -256,6 +256,16 @@
   H.multiProjetil = () => !!(H.buff('doutor') || H.buff('tentacoes'));
 
   /* ================= USO ================= */
+  // com que atributo a habilidade cresce: lido da própria fórmula, para nunca ficar desatualizado
+  H.cresceCom = function (h, ordem) {
+    if (!h || h.tipo === 'passiva') return '';
+    const fn = EFEITOS[h.id]; if (!fn) return '';
+    const src = fn.toString(), out = [];
+    if (/P\.D\.burst|virt\.fe|P\.D\.miguel/.test(src)) out.push('Fé');
+    if (/P\.D\.dano/.test(src)) { const a = OV.ORDENS[ordem] && OV.ORDENS[ordem].atributo; out.push(`${NOME_V[a] || 'Justiça'} (dano da arma)`); }
+    if (/P\.D\.cura/.test(src)) out.push('Caridade e Fé (cura)');
+    return out.join(' e ');
+  };
   H.usar = function (tecla) {
     if (!OV.jogo.ativo() || P.dead) return;
     const h = H.lista().find(x => x.tecla === tecla);
@@ -446,7 +456,7 @@
       ui.toast(H.postura === 'ora' ? 'Ora: postura de oração (menos dano recebido, a Fé se renova).' : 'Labora: postura de trabalho (mais dano, golpes mais leves).');
     },
     vadeRetro() {
-      area(8, e => { const a = angPara(e); e.vel.x += Math.sin(a) * (e.def.chefe ? 3 : 16); e.vel.z += Math.cos(a) * (e.def.chefe ? 3 : 16); atordoar(e, 1.5); ferir(e, P.D.dano * 0.6, 0); });
+      area(8, e => { const a = angPara(e); e.vel.x += Math.sin(a) * (e.def.chefe ? 3 : 16); e.vel.z += Math.cos(a) * (e.def.chefe ? 3 : 16); atordoar(e, 1.5); ferir(e, P.D.burst * 0.35, 0); }); // oração: cresce com a Fé
       C().anel(0xc9a24a, 7, 0.7, 0.85); A.bell(262, 0.25); OV.jogo.shake(0.25);
       ui.toast('Vade retro, Satana!');
     },

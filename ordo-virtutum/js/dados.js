@@ -163,13 +163,40 @@ window.OV = window.OV || {};
     crucifixo: { tempo: 0.5, pesado: 0.9, alcance: 10, arco: 0.6, folego: 12, dano: v => 7 + Math.round(v.fe * 1.5 + v.justica * 1.5), projetil: true, cor: 0xfff0d8, brilho: 0xff6a3a }
   };
 
-  OV.derivados = function (v, arma) {
-    const A = OV.ARMAS[arma];
+  /* v20: cada ordem cresce com o seu atributo. Os golpes da arma crescem com ele (e um pouco com o segundo atributo
+     do caminho e com a Justiça); as orações e as habilidades de oração crescem com a Fé, em todas as ordens. */
+  const DANO_ORDEM = {
+    joana: { attr: 'fortaleza', tri: 'justica', base: 5 },
+    franciscano: { attr: 'caridade', tri: 'esperanca', base: 1.2, kA: 1.5, kT: 0.5 },
+    dominicano: { attr: 'prudencia', tri: 'fe', base: 0 },
+    diocesano: { attr: 'caridade', tri: 'fe', base: 0 },
+    miguel: { attr: 'justica', tri: 'fortaleza', base: 8 },
+    dimas: { attr: 'prudencia', tri: 'justica', base: 2 },
+    cecilia: { attr: 'esperanca', tri: 'temperanca', base: 0 },
+    bento: { attr: 'temperanca', tri: 'fortaleza', base: 1.2, kA: 1.5, kT: 0.5 },
+    eremita: { attr: 'prudencia', tri: 'temperanca', base: 0.6 },
+    norte: { attr: 'fortaleza', tri: 'justica', base: 11.5 },
+    mistico: { attr: 'fe', tri: 'esperanca', base: 0 },
+    cipriano: { attr: 'fe', tri: 'justica', base: 1.5 }
+  };
+  OV.DANO_ORDEM = DANO_ORDEM;
+  OV.danoDaOrdem = function (ordem, v) {
+    const d = DANO_ORDEM[ordem]; if (!d) return null;
+    const just = d.attr !== 'justica' && d.tri !== 'justica' ? 0.6 * v.justica : 0;
+    return Math.max(4, Math.round(d.base + (d.kA || 2.5) * v[d.attr] + (d.kT || 1) * v[d.tri] + just));
+  };
+  // de perto, de longe ou misto: aparece na escolha da ordem
+  const ALCANCE = { joana: 'Corpo a corpo', franciscano: 'Misto', dominicano: 'Distância', diocesano: 'Misto', miguel: 'Misto', dimas: 'Corpo a corpo', cecilia: 'Distância', bento: 'Corpo a corpo', eremita: 'Distância', norte: 'Corpo a corpo', mistico: 'Distância', cipriano: 'Distância' };
+  for (const k in OV.ORDENS) { OV.ORDENS[k].alcance = ALCANCE[k] || 'Corpo a corpo'; OV.ORDENS[k].atributo = DANO_ORDEM[k] ? DANO_ORDEM[k].attr : 'justica'; }
+  OV.ALCANCE_TXT = { 'Corpo a corpo': 'luta de perto, com a arma na mão', 'Distância': 'ataca de longe, com projéteis', 'Misto': 'arma de perto e habilidades que alcançam longe' };
+
+  OV.derivados = function (v, arma, ordem) {
+    const A = OV.ARMAS[arma], dOrdem = ordem ? OV.danoDaOrdem(ordem, v) : null;
     return {
       maxHp: 60 + v.fortaleza * 8,
       maxSta: 60 + v.temperanca * 10,
       maxFe: 40 + v.fe * 15,
-      dano: A.dano(v),
+      dano: dOrdem !== null ? dOrdem : A.dano(v),
       iframe: +(0.2 + v.prudencia * 0.03).toFixed(2),
       burst: 20 + v.fe * 6,
       miguel: Math.round(8 + v.fe * 2.2),

@@ -109,6 +109,36 @@
     const linhas = p[1].map(v => [p[0], v, { verso: true }]);
     D.falas(linhas, () => { CE.encerrar(); if (depois) depois(); });
   };
+  // no co-op: o convidado vê o mesmo demônio declamar, com a câmera girando em volta; quem encerra é o anfitrião
+  CE.poemaEspelho = function (key, op) {
+    op = op || {};
+    const def = OV.FOES[key]; if (!def) return;
+    let b = op.e || null, g, modelo = null;
+    if (!b) {
+      if (!op.pos) return;
+      b = def.build(); g = b.g; modelo = b;
+      g.scale.setScalar(def.escala || 1);
+      const P = OV.P, y = M.altura(op.pos.x, op.pos.z);
+      g.position.set(op.pos.x, y + (def.y0 || 0), op.pos.z);
+      g.rotation.y = Math.atan2(P.pos.x - op.pos.x, P.pos.z - op.pos.z);
+      M.scene.add(g);
+    } else g = b.g;
+    const h = (def.height || 2.4) * (b.escala || def.escala || 1);
+    const raio = op.raio || Math.max(4.5, h * 1.5 + 2), altura = op.altura !== undefined ? op.altura : h * 0.55 + 0.6;
+    const braco0 = b.armL && b.armR ? [b.armL.rotation.x, b.armR.rotation.x] : null;
+    if (OV.audio) { OV.audio.bell(98, 0.3); setTimeout(() => OV.audio.bell(92, 0.25), 600); }
+    if (OV.audio && OV.audio.tema) OV.audio.tema('chefe');
+    CE.iniciar({
+      alvo: () => g.position.clone(), raio, altura, giro: 0.1, olhar: h * 0.62, espelhoHost: true,
+      anim: (dt, t) => {
+        if (!braco0) return;
+        const k = 0.5 + 0.5 * Math.sin(t * 1.3);
+        b.armL.rotation.x = -0.4 - 1.6 * k; b.armR.rotation.x = -0.2 - 1.9 * (1 - k * 0.6);
+        b.armL.rotation.z = -0.35 * k; b.armR.rotation.z = 0.35 * k;
+      },
+      fim: () => { if (braco0) { b.armL.rotation.set(braco0[0], 0, 0); b.armR.rotation.set(braco0[1], 0, 0); } if (modelo) M.scene.remove(modelo.g); }
+    });
+  };
   // o chefão de verdade toma o lugar do modelo do poema (sem surgir do chão de novo)
   CE.trocar = function (key) {
     const b = modelos[key]; if (!b) return false;

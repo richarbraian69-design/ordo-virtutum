@@ -83,6 +83,16 @@
     (q.pai === 'body' ? h.body : h.armL).add(m);
     P.carga = { prop, mesh: m, dois: !!DOIS[prop], pose: q };
   }
+  // o colega do co-op também leva as coisas nas mãos (só a imagem)
+  AV.soltarDe = function (Q) { if (!Q || !Q.carga) return; const m = Q.carga.mesh; if (m.parent) m.parent.remove(m); Q.carga = null; };
+  AV.porNaMaoDe = function (Q, prop) {
+    if (!Q || (Q.carga ? Q.carga.prop : null) === (prop || null)) return;
+    AV.soltarDe(Q); const h = Q.heroi; if (!prop || !h || !PROPS[prop]) return;
+    const m = PROPS[prop](), q = POSE[prop] || POSE0;
+    m.position.set(q.pos[0], q.pos[1], q.pos[2]); if (q.rot) m.rotation.set(q.rot[0], q.rot[1], q.rot[2]); if (q.esc) m.scale.setScalar(q.esc);
+    (q.pai === 'body' ? h.body : h.armL).add(m);
+    Q.carga = { prop, mesh: m, dois: !!DOIS[prop], pose: q };
+  };
   function atualizarCarga(dt) {
     tCarga -= dt; if (tCarga > 0 || travaCarga) return; tCarga = 0.3;
     const quer = OV.jogo && OV.jogo.modo === 'jogo' ? cargaDesejada() : null;
@@ -136,6 +146,15 @@
             alvo: {x,y,z} ou função, fica: deixa a coisa no lugar, falas: [[quem, txt]] depois da cena } */
   const fila = []; let cena = null;
   AV.entregar = (cfg, fim) => { fila.push({ cfg, fim, x: P.pos.x, z: P.pos.z }); travaCarga = true; };
+  AV.aoEntrega = null; // o co-op avisa o colega
+  // no convidado: a entrega que o anfitrião fez, só para ver (sem efeito, sem falas)
+  AV.espelharEntrega = function (m) {
+    const cfg = { npc: m.npc || null, prop: m.prop, acao: m.acao, alvo: m.alvo ? { x: m.alvo[0], y: m.alvo[1], z: m.alvo[2] } : null, dur: m.dur || 0, fica: !!m.fica, semVolta: !!m.semVolta };
+    if (cfg.npc && !M.figuras[cfg.npc]) cfg.npc = null;
+    fila.push({ cfg, fim: null, x: P.pos.x, z: P.pos.z, espelho: true, de: new THREE.Vector3(m.de[0], m.de[1], m.de[2]), quem: m.quem || null });
+  };
+  // o convidado não roda as missões; a cena espelhada anda por aqui
+  AV.atualizarEspelho = dt => { if (cena || fila.length) atualizarCena(dt); };
   AV.travado = () => !!cena;
   AV.emCena = () => !!cena || fila.length > 0;
   const arco = (a, b, t, h) => new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t + Math.sin(t * Math.PI) * h, a.z + (b.z - a.z) * t);
@@ -145,25 +164,28 @@
     const f = cfg.npc ? M.figuras[cfg.npc] : null;
     // quem recebe está dentro de casa: o peregrino entra junto (a casa se abre para a câmera)
     const casaNpc = f ? (M.interiores || []).find(c => dentroDe(c, f.x, f.z)) : null;
-    if (casaNpc && !dentroDe(casaNpc, P.pos.x, P.pos.z)) { const q = casaNpc.W(0, casaNpc.hd - 0.9); OV.combate.posicionar(q.x, q.z, Math.atan2(f.x - q.x, f.z - q.z)); }
+    if (casaNpc && !job.espelho && !dentroDe(casaNpc, P.pos.x, P.pos.z)) { const q = casaNpc.W(0, casaNpc.hd - 0.9); OV.combate.posicionar(q.x, q.z, Math.atan2(f.x - q.x, f.z - q.z)); }
     const alvo = cfg.alvo ? val(cfg.alvo) : null;
     // a coisa sai da mão do peregrino (ou aparece nela)
     travaCarga = true;
-    let pr = P.carga && (!cfg.prop || P.carga.prop === cfg.prop) ? P.carga : null;
+    let pr = !job.espelho && P.carga && (!cfg.prop || P.carga.prop === cfg.prop) ? P.carga : null;
     let obj;
-    if (pr) { const w = maoMundo(pr.mesh); soltarDaMao(); obj = pr.mesh; obj.position.copy(w); obj.rotation.set(0, 0, 0); scene.add(obj); }
+    if (job.espelho) { obj = PROPS[cfg.prop || 'carvao'](); obj.position.copy(job.de); scene.add(obj); if (AV.soltarDe) AV.soltarDe(job.quem); }
+    else if (pr) { const w = maoMundo(pr.mesh); soltarDaMao(); obj = pr.mesh; obj.position.copy(w); obj.rotation.set(0, 0, 0); scene.add(obj); }
     else { obj = PROPS[cfg.prop || 'carvao'](); const h = P.heroi; obj.position.copy(h ? maoMundo(h.armL) : new THREE.Vector3(P.pos.x, P.pos.y + 1, P.pos.z)); scene.add(obj); }
     const casa = f ? { x: f.x, z: f.z, rot: f.rot } : null;
     const meio = () => { const q = f ? new THREE.Vector3(f.x, H(f.x, f.z), f.z) : (alvo ? new THREE.Vector3(alvo.x, alvo.y, alvo.z) : new THREE.Vector3(P.pos.x, P.pos.y, P.pos.z)); if (alvo && f) q.lerp(new THREE.Vector3(alvo.x, alvo.y, alvo.z), 0.5); return q.lerp(new THREE.Vector3(P.pos.x, P.pos.y, P.pos.z), 0.35); };
     if (OV.cenas) {
       const m0 = meio(), casa = casaNpc;
       // dentro de casa: a câmera fica no alto, do lado da porta, sem sair pelas paredes
-      if (casa) OV.cenas.iniciar({ alvo: meio, raio: Math.max(2.2, Math.min(3.2, Math.min(casa.hw, casa.hd) - 0.5)), altura: 3.3, giro: 0, olhar: 0.8, ang0: Math.atan2(casa.porta.x - m0.x, casa.porta.z - m0.z) });
-      else OV.cenas.iniciar({ alvo: meio, raio: 5.2, altura: 2.5, giro: 0.03, olhar: 0.9, ang0: anguloLivre(m0, Math.atan2(P.pos.x - m0.x, P.pos.z - m0.z) + 0.9, 5.2) });
+      if (casa) OV.cenas.iniciar({ entrega: true, espelhoHost: !!job.espelho, alvo: meio, raio: Math.max(2.2, Math.min(3.2, Math.min(casa.hw, casa.hd) - 0.5)), altura: 3.3, giro: 0, olhar: 0.8, ang0: Math.atan2(casa.porta.x - m0.x, casa.porta.z - m0.z) });
+      else OV.cenas.iniciar({ entrega: true, espelhoHost: !!job.espelho, alvo: meio, raio: 5.2, altura: 2.5, giro: 0.03, olhar: 0.9, ang0: anguloLivre(m0, Math.atan2(P.pos.x - m0.x, P.pos.z - m0.z) + 0.9, 5.2) });
     }
     // o peregrino se vira para quem recebe
-    if (f) OV.combate.posicionar(P.pos.x, P.pos.z, Math.atan2(f.x - P.pos.x, f.z - P.pos.z));
-    cena = { cfg, fim: job.fim, f, alvo, obj, casa, t: 0, fase: 'voo', de: obj.position.clone(), estacao: null };
+    if (f && !job.espelho) OV.combate.posicionar(P.pos.x, P.pos.z, Math.atan2(f.x - P.pos.x, f.z - P.pos.z));
+    cena = { cfg, fim: job.fim, f, alvo, obj, casa, t: 0, fase: 'voo', de: obj.position.clone(), estacao: null, espelho: !!job.espelho };
+    // no co-op, o colega vê a mesma entrega
+    if (!job.espelho && AV.aoEntrega) AV.aoEntrega({ npc: cfg.npc || 0, prop: cfg.prop || 'carvao', acao: cfg.acao || 'dar', alvo: alvo ? [alvo.x, alvo.y, alvo.z] : 0, dur: cfg.dur || 0, fica: cfg.fica ? 1 : 0, semVolta: cfg.semVolta ? 1 : 0, de: [obj.position.x, obj.position.y, obj.position.z] });
     if (f) f.gesto = gestoPadrao(cena);
   }
   // o ângulo da câmera da cena com menos árvores e paredes no caminho
@@ -191,9 +213,9 @@
       if (c.fase === 'voo') { l = -0.9; r = -0.9; }
       else if (c.fase === 'andar') { l = -0.9; r = -0.9; }
       else if (c.fase === 'usar') {
-        if (ac === 'forja') { r = -2.4 + Math.abs(Math.sin(t * 3.4)) * 1.9; l = -0.6; } // o martelo sobe e desce no ritmo de quem trabalha
-        else if (ac === 'panela') { r = -1.2 + Math.sin(t * 2.6) * 0.35; l = -1.0 + Math.cos(t * 2.6) * 0.2; }
-        else if (ac === 'tocar') { l = -1.2; r = -0.9 + Math.sin(t * 6) * 0.25; }
+        if (ac === 'forja') { r = -2.4 + Math.abs(Math.sin(t * 2.4)) * 1.9; l = -0.6; } // o martelo sobe e desce no ritmo de quem trabalha
+        else if (ac === 'panela') { r = -1.2 + Math.sin(t * 1.9) * 0.35; l = -1.0 + Math.cos(t * 1.9) * 0.2; }
+        else if (ac === 'tocar') { l = -1.2; r = -0.9 + Math.sin(t * 4.2) * 0.25; }
         else if (ac === 'beber') { r = -2.4; l = -2.3; }
         else if (ac === 'dar' || ac === 'ler') { r = -1.8; l = -1.6; }
         else { r = -1.6; l = -0.8; }
@@ -205,7 +227,7 @@
   const ESTACAO = { forja: 1.2, panela: 1.1, lareira: 1.3, pendurar: 0.9, altar: 1.1, tocar: 0, dar: 0, beber: 0, ler: 0, curral: 0, colocar: 0 };
   function atualizarCena(dt) {
     if (!cena) {
-      if (fila.length && !D.aberto && !(OV.cenas && OV.cenas.ativa) && OV.jogo.ativo()) {
+      if (fila.length && !D.aberto && !(OV.cenas && OV.cenas.ativa) && (OV.jogo.ativo() || fila[0].espelho)) {
         const job = fila.shift();
         // o peregrino já foi para longe (viajou, renasceu): a cena não acontece, só o efeito dela
         if (Math.hypot(P.pos.x - job.x, P.pos.z - job.z) > 10) { if (!fila.length) { travaCarga = false; tCarga = 0; } if (job.fim) job.fim(); return; }
@@ -214,11 +236,11 @@
       return;
     }
     const c = cena, f = c.f, ac = c.cfg.acao || 'dar'; c.t += dt;
-    P.invuln = Math.max(P.invuln || 0, 0.3);
+    if (!c.espelho) P.invuln = Math.max(P.invuln || 0, 0.3);
     const maoNpc = () => f && f.bracos ? maoDe(f.bracos[1]) : f ? new THREE.Vector3(f.x, H(f.x, f.z) + 1.3, f.z) : null;
     if (c.fase === 'voo') {
       const destino = (ac === 'curral' || ac === 'colocar' || !f) && c.alvo ? new THREE.Vector3(c.alvo.x, c.alvo.y, c.alvo.z) : maoNpc();
-      const k = Math.min(1, c.t / 1.3); // o objeto voa devagar, para dar tempo de ver
+      const k = Math.min(1, c.t / 1.7); // o objeto voa devagar, para dar tempo de ver
       c.obj.position.copy(arco(c.de, destino, k * k * (3 - 2 * k), 0.8)); c.obj.rotation.y += dt * 2.5;
       if (k >= 1) {
         if (f && c.alvo && ESTACAO[ac]) {
@@ -236,7 +258,7 @@
       if (!f.destino || c.t > 6 || c.parado > 0.5) { if (f.destino) { const d = f.destino; f.destino = null; f.mover(d.x, d.z, d.rot); } c.fase = 'usar'; c.t = 0; comecarUso(c); }
     } else if (c.fase === 'usar') {
       // cada cena dura de 3 a 5 segundos (as durações de missão mais curtas que 3 s sobem para 3)
-      const dur = Math.max(3, c.cfg.dur || (ac === 'tocar' ? 4.2 : ac === 'forja' ? 4.4 : ac === 'panela' ? 4 : ac === 'dar' || ac === 'beber' || ac === 'ler' ? 3 : 3.6));
+      const dur = Math.min(5, Math.max(3.5, c.cfg.dur || (ac === 'tocar' ? 4.6 : ac === 'forja' ? 5 : ac === 'panela' ? 4.6 : ac === 'dar' || ac === 'beber' || ac === 'ler' ? 3.6 : 4.2)));
       usar(c, dt);
       if (c.t >= dur) { c.fase = 'fim'; c.t = 0; }
     } else if (c.fase === 'fim') {
@@ -244,6 +266,7 @@
       if (f) { f.gesto = null; if (c.casa && f.pernas && !c.cfg.semVolta) f.ir(c.casa.x, c.casa.z, c.casa.rot); }
       if (OV.cenas) OV.cenas.encerrar();
       const fim = c.fim; cena = null; travaCarga = false; tCarga = 0;
+      if (c.espelho) return; // no convidado, a cena é só para ver: o efeito e as falas são do anfitrião
       const depois = () => { if (fim) fim(); };
       if (c.cfg.falas && c.cfg.falas.length) D.falas(c.cfg.falas, depois); else depois();
     }
@@ -266,7 +289,7 @@
     const mao = f && f.bracos ? maoDe(f.bracos[1]) : null;
     if (ac === 'forja' || ac === 'lareira' || ac === 'panela') {
       // a coisa vai para dentro do fogo ou da panela
-      if (a) { const k = Math.min(1, c.t / 1.4); c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-3 * dt)); c.obj.scale.setScalar(Math.max(0.01, 1 - k)); }
+      if (a) { const k = Math.min(1, c.t / 2.2); c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-2 * dt)); c.obj.scale.setScalar(Math.max(0.01, 1 - k)); }
     } else if (ac === 'pendurar' || ac === 'altar') {
       if (a) { c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-4 * dt)); c.obj.rotation.y = 0; if (c.obj.userData.ave) c.obj.userData.ave.position.y = -0.02 + Math.abs(Math.sin(c.t * 5)) * 0.05; }
     } else if (ac === 'curral') {

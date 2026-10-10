@@ -8,12 +8,12 @@
   OV.tempo = T;
 
   // quadros-chave do céu ao longo do dia
-  const NOITE = { ceu: 0x181018, n: 28, f: 100, amb: 0x4a3644, ai: 0.72, hs: 0x5a6488, hg: 0x22140e, hi: 0.48, luz: 0x9aa6d4, li: 0.62, est: 1, vela: 1, bras: 0.85 };
-  const AURORA = { ceu: 0x5a3442, n: 26, f: 96, amb: 0x523436, ai: 0.62, hs: 0x8a7084, hg: 0x2a1812, hi: 0.45, luz: 0xff9466, li: 0.7, est: 0.3, vela: 0.85, bras: 0.6 };
-  const MANHA = { ceu: 0x9c8e8a, n: 34, f: 125, amb: 0x6a5850, ai: 0.66, hs: 0xb4b6c2, hg: 0x3a2c20, hi: 0.6, luz: 0xffd6ae, li: 1.0, est: 0, vela: 0.45, bras: 0.25 };
-  const DIA = { ceu: 0xa4afb2, n: 42, f: 150, amb: 0x6e6258, ai: 0.7, hs: 0xc4ccd6, hg: 0x3a3024, hi: 0.72, luz: 0xfff0d6, li: 1.25, est: 0, vela: 0.35, bras: 0.15 };
-  const TARDE = { ceu: 0xb08660, n: 36, f: 130, amb: 0x6a4c3c, ai: 0.66, hs: 0xc4a07e, hg: 0x3a2418, hi: 0.6, luz: 0xffae6a, li: 1.0, est: 0, vela: 0.5, bras: 0.3 };
-  const OCASO = { ceu: 0x5e2e30, n: 28, f: 100, amb: 0x4e2c32, ai: 0.62, hs: 0x7a5066, hg: 0x22100e, hi: 0.45, luz: 0xff7044, li: 0.7, est: 0.35, vela: 0.9, bras: 0.6 };
+  const NOITE = { ceu: 0x181018, n: 28, f: 100, amb: 0x4a3644, ai: 0.72, hs: 0x5a6488, hg: 0x22140e, hi: 0.48, luz: 0x9aa6d4, li: 0.62, est: 1, vela: 1, bras: 0.85, casa: 1 };
+  const AURORA = { ceu: 0x5a3442, n: 26, f: 96, amb: 0x523436, ai: 0.62, hs: 0x8a7084, hg: 0x2a1812, hi: 0.45, luz: 0xff9466, li: 0.7, est: 0.3, vela: 0.85, bras: 0.6, casa: 0.45 };
+  const MANHA = { ceu: 0x9c8e8a, n: 34, f: 125, amb: 0x6a5850, ai: 0.66, hs: 0xb4b6c2, hg: 0x3a2c20, hi: 0.6, luz: 0xffd6ae, li: 1.0, est: 0, vela: 0.45, bras: 0.25, casa: 0 };
+  const DIA = { ceu: 0xa4afb2, n: 42, f: 150, amb: 0x6e6258, ai: 0.7, hs: 0xc4ccd6, hg: 0x3a3024, hi: 0.72, luz: 0xfff0d6, li: 1.25, est: 0, vela: 0.35, bras: 0.15, casa: 0 };
+  const TARDE = { ceu: 0xb08660, n: 36, f: 130, amb: 0x6a4c3c, ai: 0.66, hs: 0xc4a07e, hg: 0x3a2418, hi: 0.6, luz: 0xffae6a, li: 1.0, est: 0, vela: 0.5, bras: 0.3, casa: 0 };
+  const OCASO = { ceu: 0x5e2e30, n: 28, f: 100, amb: 0x4e2c32, ai: 0.62, hs: 0x7a5066, hg: 0x22100e, hi: 0.45, luz: 0xff7044, li: 0.7, est: 0.35, vela: 0.9, bras: 0.6, casa: 0.7 };
   const K = [[0, NOITE], [4.5, NOITE], [5.8, AURORA], [7.2, MANHA], [9, DIA], [16, DIA], [17.6, TARDE], [19, OCASO], [20.4, NOITE], [24, NOITE]];
   const CORES = ['ceu', 'amb', 'hs', 'hg', 'luz'];
 
@@ -77,6 +77,9 @@
     M.amb.color.setHex(k.amb); M.amb.intensity = k.ai;
     M.hemi.color.setHex(k.hs); M.hemi.groundColor.setHex(k.hg); M.hemi.intensity = k.hi;
     M.luzFator = k.vela; M.brasas.opacity = k.bras;
+    // a luz das casas (portas e janelas acesas) só existe do entardecer ao amanhecer
+    M.casaFator = k.casa === undefined ? 1 : k.casa;
+    if (M.MAT && M.MAT.winLit) { if (!M.MAT.winLit._noite) { M.MAT.winLit._noite = M.MAT.winLit.color.clone(); M.MAT.winLit._dia = new THREE.Color(0x2a1e16); } M.MAT.winLit.color.copy(M.MAT.winLit._dia).lerp(M.MAT.winLit._noite, M.casaFator); }
 
     // o astro que ilumina: o sol de dia, a lua à noite (com uma pequena penumbra na troca)
     const diaSol = h >= SOL_NASCE && h < SOL_POE;

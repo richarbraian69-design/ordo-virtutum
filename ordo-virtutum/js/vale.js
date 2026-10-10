@@ -203,7 +203,7 @@
     const t = telhado(d, w, op.rh || 2.2, op.roof || MAT.roofTile, mat); t.rotation.y = Math.PI / 2; t.position.y = h; g.add(t);
     g.add(mesh(new THREE.BoxGeometry(1.1, 1.9, 0.12), MAT.wood, 0, 0.95, d / 2 + 0.03));
     [-1, 1].forEach(s => { if (w > 4.5) g.add(mesh(new THREE.BoxGeometry(0.7, 0.6, 0.1), op.luz ? MAT.winLit : MAT.winDark, s * w / 3.2, h * 0.62, d / 2 + 0.03)); });
-    if (op.luz) { const p = frente(x, z, rot, d / 2 + 0.8); M.emissor(p.x, H(x, z) + 1.6, p.z, 0.7, 7, 0xd9822e); }
+    if (op.luz) { const p = frente(x, z, rot, d / 2 + 0.8); M.emissor(p.x, H(x, z) + 1.6, p.z, 0.7, 7, 0xd9822e).casa = true; }
     if (OV.cenario) {
       if (!op.semOrnato) OV.cenario.ornarCasa(g, w, d, h, { x, z, rot, rh: op.rh || 2.2, janela: op.luz ? MAT.winLit : MAT.winDark, janelasFrente: w > 4.5, estilo: op.estilo, semChamine: op.semChamine });
       OV.cenario.fundir(g); // a casa inteira vira duas ou três malhas
@@ -237,7 +237,7 @@
     const cs = Math.cos(rot), sn = Math.sin(rot);
     const Wd = (lx, lz) => ({ x: x + lx * cs + lz * sn, z: z - lx * sn + lz * cs });
     const centro = Wd(0, 0);
-    M.emissor(centro.x, H(x, z) + h - 0.9, centro.z, 1.15, Math.max(w, d) + 2, 0xffb468);
+    const luzDentro = M.emissor(centro.x, H(x, z) + h - 0.9, centro.z, 1.15, Math.max(w, d) + 2, 0xffb468); luzDentro.casa = true; luzDentro.dentro = true;
     const caixas = [];
     [[0, -d / 2 + t / 2, w / 2, t / 2], [-(w / 2 - t / 2), 0, t / 2, d / 2], [w / 2 - t / 2, 0, t / 2, d / 2], [-(porta / 2 + seg / 2), d / 2 - t / 2, seg / 2, t / 2], [porta / 2 + seg / 2, d / 2 - t / 2, seg / 2, t / 2]].forEach(([lx, lz, hw, hd]) => {
       const p = Wd(lx, lz); caixas.push(M.caixa(p.x, p.z, hw + 0.04, hd + 0.04, rot));

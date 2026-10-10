@@ -31,7 +31,7 @@
   const HB = () => OV.habilidades;
   C.recalcular = function () {
     const o = OV.ORDENS[P.pers.ordem];
-    P.D = OV.derivados(P.pers.virt, o.arma); P.arma = OV.ARMAS[o.arma]; P.armaId = o.arma;
+    P.D = OV.derivados(P.pers.virt, o.arma, P.pers.ordem); P.arma = OV.ARMAS[o.arma]; P.armaId = o.arma;
     if (C.flag('arma_afiada')) P.D.dano += 3;
     if (C.flag('sopa_lucia')) P.D.maxHp += 15;
     if (HB() && HB().tem('castelo')) P.D.maxFe += 30;
@@ -410,9 +410,11 @@
     if (P.oratT > 0) { P.oratT -= dt; if (P.oratT <= 0) { P.oratT = 0; OV.jogo.oratorioConcluido(); } }
 
     const keys = OV.input.keys;
-    const dir = inputDir(); if ((OV.aventura && OV.aventura.travado()) || (OV.ajustes && OV.ajustes.travado()) || P.travado) dir.set(0, 0, 0); // durante uma entrega, o peregrino só olha
+    // no co-op o mundo segue com uma tela aberta, mas o peregrino fica parado enquanto o jogador lê
+    const semMao = !!(OV.jogo && OV.jogo.ativo && !OV.jogo.ativo());
+    const dir = inputDir(); if (semMao || (OV.aventura && OV.aventura.travado()) || (OV.ajustes && OV.ajustes.travado()) || P.travado) dir.set(0, 0, 0); // durante uma entrega, o peregrino só olha
     const moving = dir.lengthSq() > 0;
-    const wantPray = keys.KeyR && P.dodgeT <= 0 && P.atkT <= 0 && P.castT <= 0 && P.prayLock <= 0 && P.oratT <= 0;
+    const wantPray = !semMao && keys.KeyR && P.dodgeT <= 0 && P.atkT <= 0 && P.castT <= 0 && P.prayLock <= 0 && P.oratT <= 0;
     if (wantPray) {
       if (P.status.soberba) { P.praying = false; ui.toast('A Soberba impede a oração.'); }
       else if (!P.praying) { P.praying = true; P.prayT = 0; }
@@ -435,7 +437,7 @@
     if (P.status.gula) P.sta = Math.max(0, P.sta - 4 * dt);
     // correr gasta fôlego (3 por segundo); com o fôlego no fim, o peregrino volta a andar até recuperar um pouco
     if (P.sta <= 0.5) P.semFolego = true; else if (P.semFolego && P.sta > 15) P.semFolego = false;
-    P.correndo = !!((keys.ShiftLeft || keys.ShiftRight) || P.autoCorrer) && moving && !P.praying && P.atkT <= 0 && !P.semFolego;
+    P.correndo = !semMao && !!((keys.ShiftLeft || keys.ShiftRight) || P.autoCorrer) && moving && !P.praying && P.atkT <= 0 && !P.semFolego;
     if (P.correndo) P.sta = Math.max(0, P.sta - 3 * dt);
     if (P.correndo) { speed *= 1.75; sprinting = true; }
     P.naAgua = M.naAgua ? M.naAgua(P.pos.x, P.pos.z) : false;

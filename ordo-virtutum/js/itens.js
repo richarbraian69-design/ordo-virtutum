@@ -403,8 +403,9 @@
     if (s.onde === 'inv') {
       if (it.tipo === 'consumivel') b.push(['usar', 'Usar']);
       if (it.slot) b.push(['equipar', 'Equipar']);
-      if (modo === 'bau') b.push(['guardar', 'Guardar no baú →']);
-    } else if (s.onde === 'bau') b.push(['pegar', '← Pegar']);
+      if (modo === 'bau') b.push(['guardar', abaBau === 'dupla' ? 'Guardar no baú da dupla →' : 'Guardar no baú →']);
+      if (IT.podeDarColega && IT.podeDarColega(s.id)) b.push(['presente', `Dar a ${esc(IT.nomeColega())}`]);
+    } else if (s.onde === 'bau' || s.onde === 'dupla') b.push(['pegar', '← Pegar']);
     else if (s.onde === 'eq') b.push(['tirar', 'Tirar']);
     return b.map(([a, t]) => `<button type="button" data-acao="${a}" data-id="${s.id}"${s.slot ? ` data-slot="${s.slot}"` : ''}>${t}</button>`).join('');
   }
@@ -420,6 +421,9 @@
     const m = mochila();
     if (sel && sel.onde === 'inv' && !m.itens[sel.id]) sel = null;
     if (sel && sel.onde === 'bau' && !P.pers.bau[sel.id]) sel = null;
+    const temDupla = !!(IT.dupla && IT.dupla.ativo());
+    if (!temDupla) abaBau = 'meu';
+    if (sel && sel.onde === 'dupla' && !(temDupla && IT.dupla.lista()[sel.id] > 0)) sel = null;
     if (sel && sel.onde === 'eq' && m.equip[sel.slot] !== sel.id) sel = null;
     const eq = IT.SLOTS.map(([k, nome]) => { const id = m.equip[k]; return `<div class="eqc"><span>${nome}</span>${id && ITENS[id] ? celula(id, 1, 'eq', k) : `<span class="cel vazia">${IT.svg(ICONE_SLOT[k] || 'item', 'ico fantasma')}</span>`}</div>`; }).join('');
     const pm = pilhas(m.itens), usados = pm.length;
@@ -430,10 +434,12 @@
     html += `<h3>Equipado</h3><div class="eqs">${eq}</div>`;
     html += `<div class="cols${modo === 'bau' ? ' duas' : ''}"><div><h3>Mochila <small>${usados}/${CAPACIDADE} espaços</small></h3><div class="grade">${grade}</div></div>`;
     if (modo === 'bau') {
-      const pb = pilhas(P.pers.bau, true);
-      let gb = pb.map(([id, n]) => celula(id, n, 'bau')).join('');
+      const dupla = abaBau === 'dupla', fonte = dupla ? IT.dupla.lista() : P.pers.bau, onde = dupla ? 'dupla' : 'bau';
+      const pb = pilhas(fonte, true);
+      let gb = pb.map(([id, n]) => celula(id, n, onde)).join('');
       for (let i = pb.length; i < Math.max(CAPACIDADE, Math.ceil((pb.length + 1) / 5) * 5); i++) gb += vazia();
-      html += `<div><h3>Baú <small>${pb.length} ${pb.length === 1 ? 'item' : 'itens'}</small></h3><div class="grade">${gb}</div></div>`;
+      const abas = temDupla ? `<div class="inv-abas"><button type="button" data-aba="meu" class="${dupla ? '' : 'on'}">Seu baú</button><button type="button" data-aba="dupla" class="${dupla ? 'on' : ''}">Baú da dupla</button></div>` : '';
+      html += `<div>${abas}<h3>${dupla ? 'Baú da dupla' : 'Baú'} <small>${pb.length} ${pb.length === 1 ? 'item' : 'itens'}</small></h3>${dupla ? '<p class="sub">Os dois jogadores veem e usam este baú. Ele fica guardado no mundo do anfitrião.</p>' : ''}<div class="grade">${gb}</div></div>`;
     }
     html += `</div><div class="inv-det">${sel ? `<div class="det-txt">${fichaItem(sel.id)}</div><div class="det-acoes">${acoes(sel)}</div>` : '<p class="det-vazio">Passe o mouse sobre um item para ler a sua descrição. Clique para escolher o que fazer com ele; dois cliques usam, equipam ou guardam.</p>'}</div>`;
     html += '<p class="foot">Consumíveis e restos corrompidos se empilham até 10 por espaço. Itens corrompidos só servem depois da bênção de um sacerdote (Padre Tomé, Frei Gaspar). Pressione I ou Esc para fechar.</p>';
@@ -453,16 +459,21 @@
     tip.style.left = x + 'px'; tip.style.top = y + 'px';
   }
   document.addEventListener('mouseover', ev => { const c = ev.target.closest && ev.target.closest('#inv .cel[data-id]'); dica(c || null); });
-  function agir(a, id, slot) {
+  function agir(a, id, slot, onde) {
     if (a === 'usar') IT.usar(id);
     else if (a === 'equipar') IT.equipar(id);
     else if (a === 'tirar') IT.desequipar(slot);
-    else if (a === 'guardar') { if (IT.tirar(id)) P.pers.bau[id] = (P.pers.bau[id] || 0) + 1; }
-    else if (a === 'pegar') { if (!IT.cabe(1, id)) ui.toast('A mochila está cheia.'); else { P.pers.bau[id]--; if (P.pers.bau[id] <= 0) delete P.pers.bau[id]; mochila().itens[id] = (mochila().itens[id] || 0) + 1; } }
+    else if (a === 'presente') { if (IT.darColega) IT.darColega(id); }
+    else if (a === 'guardar') { if (abaBau === 'dupla' && IT.dupla) IT.dupla.guardar(id); else if (IT.tirar(id)) P.pers.bau[id] = (P.pers.bau[id] || 0) + 1; }
+    else if (a === 'pegar' && (onde === 'dupla' || (!onde && abaBau === 'dupla'))) { if (IT.dupla) IT.dupla.pegar(id); }
+    else if (a === 'pegar') { if (!(P.pers.bau[id] > 0)) return; if (!IT.cabe(1, id)) ui.toast('A mochila está cheia.'); else { P.pers.bau[id]--; if (P.pers.bau[id] <= 0) delete P.pers.bau[id]; mochila().itens[id] = (mochila().itens[id] || 0) + 1; } }
   }
+  let abaBau = 'meu'; // 'meu' | 'dupla'
   let ultimoClique = null;
-  const primaria = (onde, id) => { const it = ITENS[id]; if (onde === 'eq') return 'tirar'; if (onde === 'bau') return 'pegar'; if (modo === 'bau') return 'guardar'; return it.tipo === 'consumivel' ? 'usar' : it.slot ? 'equipar' : null; };
+  const primaria = (onde, id) => { const it = ITENS[id]; if (onde === 'eq') return 'tirar'; if (onde === 'bau' || onde === 'dupla') return 'pegar'; if (modo === 'bau') return 'guardar'; return it.tipo === 'consumivel' ? 'usar' : it.slot ? 'equipar' : null; };
   document.addEventListener('click', ev => {
+    const ab = ev.target.closest('#inv [data-aba]');
+    if (ab) { abaBau = ab.dataset.aba; sel = null; IT.refresh(); return; }
     const o = ev.target.closest('#inv [data-ordem]');
     if (o) { ordem = o.dataset.ordem; try { localStorage.setItem('ov_inv_ordem', ordem); } catch (e) { /* ok */ } IT.refresh(); return; }
     const c = ev.target.closest('#inv .cel[data-id]');
@@ -470,13 +481,13 @@
       const s = { onde: c.dataset.cel, id: c.dataset.id, slot: c.dataset.slot }, agora = performance.now();
       const mesmo = ultimoClique && ultimoClique.onde === s.onde && ultimoClique.id === s.id && ultimoClique.slot === s.slot && agora - ultimoClique.t < 380;
       ultimoClique = mesmo ? null : Object.assign({ t: agora }, s);
-      if (mesmo) { const a = primaria(s.onde, s.id); if (a) { agir(a, s.id, s.slot); sel = null; dica(null); IT.refresh(); return; } }
+      if (mesmo) { const a = primaria(s.onde, s.id); if (a) { agir(a, s.id, s.slot, s.onde); sel = null; dica(null); IT.refresh(); return; } }
       sel = s; IT.refresh(); return;
     }
     const b = ev.target.closest('#inv [data-acao]'); if (!b) return;
     const a = b.dataset.acao, id = b.dataset.id;
     if (a === 'fechar') { OV.jogo.fecharInventario(); return; }
-    agir(a, id, b.dataset.slot);
+    agir(a, id, b.dataset.slot, sel ? sel.onde : null);
     IT.refresh();
   });
 

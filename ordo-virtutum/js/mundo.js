@@ -237,7 +237,8 @@
   };
   let poolT = 0;
   function distribuirLuzes(fx, fz) {
-    const ativos = M.emissores.filter(e => e.ativo && e.int > 0);
+    const cf = M.casaFator === undefined ? 1 : M.casaFator;
+    const ativos = M.emissores.filter(e => e.ativo && e.int > 0 && !(e.casa && cf < 0.02 && !(e.dentro && M.interiorAtual)));
     ativos.forEach(e => { e._d = (e.x - fx) ** 2 + (e.z - fz) ** 2; });
     ativos.sort((a, b) => a._d - b._d);
     for (let i = 0; i < POOL; i++) {
@@ -259,7 +260,8 @@
     ambT += dt;
     poolT -= dt; if (poolT <= 0) { poolT = 0.2; distribuirLuzes(fx, fz); }
     const lf = M.luzFator;
-    pool.forEach(p => { if (p.e) p.l.intensity = lf * (p.e.flick ? p.e.int * (0.85 + 0.15 * Math.sin(ambT * 9 + p.e.ph) + 0.08 * Math.sin(ambT * 23 + p.e.ph * 2)) : p.e.int); });
+    const cf = M.casaFator === undefined ? 1 : M.casaFator;
+    pool.forEach(p => { if (p.e) p.l.intensity = lf * (p.e.casa && !(p.e.dentro && M.interiorAtual) ? cf : 1) * (p.e.flick ? p.e.int * (0.85 + 0.15 * Math.sin(ambT * 9 + p.e.ph) + 0.08 * Math.sin(ambT * 23 + p.e.ph * 2)) : p.e.int); });
     M.flames.forEach((f, i) => { if (f.visible) f.scale.y = 0.8 + 0.35 * Math.abs(Math.sin(ambT * 11 + i * 1.7)); });
     M.animados.forEach(fn => fn(dt, ambT));
     const fy = M.altura(fx, fz);

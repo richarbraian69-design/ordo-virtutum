@@ -5,7 +5,8 @@
    · O CONVIDADO leva o próprio personagem: anda, luta e reza por conta própria; os golpes dele vão para o
      anfitrião, e os vícios, as falas, as cenas e a hora vêm do anfitrião. Ganha XP, moedas e itens próprios,
      e salva só o personagem (o mundo dele fica intacto).
-   · Quando um dos dois abre um menu, o inventário, o mapa ou uma conversa, o mundo congela para os dois.
+   · As telas (inventário, ficha, mapa, diário, menus) não param o mundo no co-op. As conversas e as cenas,
+     que os dois veem juntos, param os dois; quem conduz é o anfitrião.
    · Os dois andam juntos: barco, viagem e masmorra levam o convidado junto com o anfitrião. */
 (function (OV) {
   'use strict';
@@ -15,7 +16,7 @@
   const { turnTo, lerp } = OV.util;
   const $ = id => document.getElementById(id);
   const esc = s => ui.esc(String(s));
-  const VERSAO = '18.2';
+  const VERSAO = '20';
   const MULT = 2.5;
 
   const CO = { papel: null, codigo: null, ficha: null, ws: null, conectado: false, colegaOn: false, colegaNome: '', seq: 0, atkSeq: 0, mundoHost: null, espelho: false };
@@ -101,6 +102,8 @@
   CO.alvosRemotos = () => (CO.anfitriao() && CO.colegaOn && R.heroi && R.visto && J.modo === 'jogo' ? [R] : []);
   const rotulo = document.createElement('div'); rotulo.className = 'coop-nome'; rotulo.hidden = true; document.body.appendChild(rotulo);
   function tirarColega() {
+    if (OV.aventura && OV.aventura.soltarDe) OV.aventura.soltarDe(R);
+    if (OV.biblicas && OV.biblicas.montariaDe) OV.biblicas.montariaDe(R, null, 0);
     if (R.heroi) { M.scene.remove(R.heroi.g); R.heroi = null; }
     R.visto = 0; R.ocupado = null; R.dead = false; rotulo.hidden = true;
   }
@@ -121,7 +124,7 @@
     R.facingAlvo = m.f; R.correndo = !!m.cr; R.dead = !!m.dead; R.praying = !!m.pr; R.oratT = m.or ? 1 : 0; R.prayT = m.pr ? 2 : 0;
     if (m.ad !== R.ad) { R.ad = m.ad; R.atkDur = m.adur || 0.5; R.atkT = R.atkDur; R.atkPesado = !!m.ap; }
     R.dodgeT = m.dg ? Math.max(R.dodgeT, 0.25) : 0; R.castT = m.ck ? Math.max(R.castT, 0.4) : R.castT; R.castKind = m.ck || R.castKind; R.signT = m.sg ? Math.max(R.signT, 0.3) : R.signT;
-    R.velaMao = !!m.vm; R.oculto = m.ocl ? 1 : 0;
+    R.velaMao = !!m.vm; R.oculto = m.ocl ? 1 : 0; R.cargaProp = m.cg || null; R.montaK = m.mt || null;
     if (CO.anfitriao() && caiuAgora && J.modo === 'jogo' && (P.dead || CO.separados)) setTimeout(() => { if (J.modo === 'jogo' && J.reiniciarLutas) J.reiniciarLutas(); }, 3200);
     R.ocupado = m.oc || null; R.nome = m.nome || CO.colegaNome; R.nivel = m.nivel || 1; R.hp = m.hp; R.mhp = m.mhp || 1;
     if (m.nome) CO.colegaNome = m.nome;
@@ -129,7 +132,8 @@
   M.animados.push(dt => {
     if (!R.heroi) return;
     const vis = CO.ativo() && CO.colegaOn && J.modo === 'jogo' && R.visto && performance.now() - R.visto < 6000;
-    R.heroi.g.visible = !!vis; rotulo.hidden = !vis || !!motivoLocal() || P.dead;
+    const telaLocal = J.inv || J.ficha || J.mapa || J.diarioAb || J.pausado || ui.ovAberto() || D.aberto || !!motivoLocal();
+    R.heroi.g.visible = !!vis; rotulo.hidden = !vis || telaLocal || P.dead;
     if (!vis) return;
     if (R.alvo) {
       const k = 1 - Math.exp(-12 * dt);
@@ -137,7 +141,9 @@
     }
     R.facing = turnTo(R.facing, R.facingAlvo || 0, 14 * dt);
     R.atkT = Math.max(0, R.atkT - dt); R.dodgeT = Math.max(0, R.dodgeT - dt); R.castT = Math.max(0, R.castT - dt); R.signT = Math.max(0, R.signT - dt);
+    if (OV.aventura && OV.aventura.porNaMaoDe) OV.aventura.porNaMaoDe(R, R.dead ? null : R.cargaProp);
     C.animarHeroi(dt, false, R);
+    if (OV.biblicas && OV.biblicas.montariaDe) OV.biblicas.montariaDe(R, R.dead ? null : R.montaK, dt);
     // o nome do colega, flutuando sobre a cabeça
     const v = new THREE.Vector3(R.pos.x, R.pos.y + 2.55, R.pos.z).project(M.camera);
     const cv = M.renderer.domElement.getBoundingClientRect();
@@ -154,8 +160,15 @@
   C.atacar = function (pesado) { const a = P.atkT; atacar0.call(C, pesado); if (P.atkT > a + 0.01) CO.atkSeq++; };
   function motivoLocal() {
     if (J.modo !== 'jogo') return null;
+    // o que o convidado só assiste (a conversa, a cena e o prólogo do anfitrião) não segura o mundo
+    if (HI() && HI().espelhandoPrologo && HI().espelhandoPrologo()) return null;
+    if (OV.cenas && OV.cenas.ativa && OV.cenas.ativa.espelhoHost) return null;
     if (HI() && HI().prologoAberto && HI().prologoAberto()) return 'vendo uma cena';
+    if (CO.espelho || CO.servico) return null;
     if (J.dialogo || D.aberto) return 'numa conversa';
+    if (OV.cenas && OV.cenas.ativa && !OV.cenas.ativa.entrega) return 'vendo uma cena'; // a entrega o colega vê na tela dele, sem parar
+    // no co-op, as telas não param o mundo: só servem para mostrar ao outro o que o colega está fazendo
+    if (CO.ativo()) return null;
     if (J.inv) return 'no inventário';
     if (J.mapa) return 'olhando o mapa';
     if (J.diarioAb) return 'lendo o diário';
@@ -168,7 +181,8 @@
     const pers = P.pers || {};
     return { t: 'eu', x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), f: r2(P.facing), cr: P.correndo ? 1 : 0, ad: CO.atkSeq, adur: r2(P.atkDur || 0.5), ap: P.atkPesado ? 1 : 0,
       dg: P.dodgeT > 0 ? 1 : 0, pr: P.praying ? 1 : 0, or: P.oratT > 0 ? 1 : 0, ck: P.castT > 0 ? P.castKind : 0, sg: P.signT > 0 ? 1 : 0, dead: P.dead ? 1 : 0,
-      hp: Math.round(P.hp || 0), mhp: P.D ? P.D.maxHp : 1, nome: pers.nome || '', sexo: pers.sexo, ordem: pers.ordem, nivel: pers.nivel || 1, oc: motivoLocal(), vm: P.velaMao ? 1 : 0, ocl: P.oculto > 0 ? 1 : 0 };
+      hp: Math.round(P.hp || 0), mhp: P.D ? P.D.maxHp : 1, nome: pers.nome || '', sexo: pers.sexo, ordem: pers.ordem, nivel: pers.nivel || 1, oc: motivoLocal(), vm: P.velaMao ? 1 : 0, ocl: P.oculto > 0 ? 1 : 0,
+      cg: P.carga ? P.carga.prop : 0, mt: P.montado ? P.montado.k : 0 };
   }
 
   /* =====================================================================
@@ -177,11 +191,21 @@
   const ativo0 = J.ativo;
   CO.colegaOcupado = () => !!(CO.ativo() && CO.colegaOn && R.ocupado && R.visto && performance.now() - R.visto < 6000);
   J.ativo = () => ativo0() && !CO.colegaOcupado();
+  // no co-op o mundo não para com o inventário, a ficha, o mapa, o diário ou o menu: só com conversas e cenas
+  const vivo0 = J.mundoVivo;
+  J.mundoVivo = function () {
+    if (vivo0.call(J)) return true;
+    if (!CO.ativo() || J.modo !== 'jogo' || CO.colegaOcupado()) return false;
+    if ((J.dialogo || D.aberto) && !CO.servico) return false;
+    if (OV.cenas && OV.cenas.ativa) return false;
+    if (HI() && HI().prologoAberto && HI().prologoAberto()) return false;
+    return true;
+  };
   const faixa = document.createElement('div'); faixa.id = 'coopPausa'; faixa.hidden = true; document.body.appendChild(faixa);
   function atualizarFaixa() {
     const mostrar = J.modo === 'jogo' && CO.colegaOcupado() && !motivoLocal();
     faixa.hidden = !mostrar;
-    if (mostrar) faixa.textContent = `⏸ O mundo está parado: ${R.nome || 'o seu colega'} está ${R.ocupado}.`;
+    if (mostrar) faixa.textContent = `⏸ ${R.nome || 'O seu colega'} está ${R.ocupado}: o mundo espera.`;
   }
 
   /* =====================================================================
@@ -189,7 +213,12 @@
      ===================================================================== */
   // cada vício ganha um número, para os dois navegadores falarem do mesmo
   const spawn0 = I.spawn;
-  I.spawn = function () { const e = spawn0.apply(I, arguments); if (e && !e.netId) e.netId = ++CO.seq; return e; };
+  // um vício "de mentira": aceita tudo o que se faz com ele e não existe no mundo (o convidado aplicando o mundo)
+  const STUB = (() => { const alvo = function () {}; const px = new Proxy(alvo, { get: (t, k) => (k === Symbol.toPrimitive ? () => 0 : k === 'removed' ? true : k === 'state' ? 'dead' : px), set: () => true, apply: () => px }); return px; })();
+  I.spawn = function () {
+    if (CO.convidado() && CO.stubSpawn) return STUB;
+    const e = spawn0.apply(I, arguments); if (e && !e.netId) e.netId = ++CO.seq; return e;
+  };
   const porIdH = id => I.lista.find(e => e.netId === id && !e.removed);
   const estadoDe = e => (e.spawnT > 0 ? 'surgindo' : e.state);
   function fotoInimigos() {
@@ -209,16 +238,30 @@
     CO.enviar({ t: 'ferir', d: o.dano, st: o.status || 0, a: r2(o.ang || 0), id: f ? f.netId : 0, key: f ? f.def.key : 0, ex: f ? r2(f.g.position.x) : 0, ez: f ? r2(f.g.position.z) : 0 });
   };
   I.aoFx = m => { if (CO.anfitriao() && CO.colegaOn) { m.t = 'fx'; CO.enviar(m); } };
+  if (OV.aventura) OV.aventura.aoEntrega = m => { if (CO.anfitriao() && CO.colegaOn) CO.enviar(Object.assign({ t: 'entrega' }, m)); };
   // as mortes: o anfitrião ganha como sempre; o convidado recebe a notícia e ganha a parte dele
+  // a experiência de cada vício vencido vale para quem está a até 40 m dele (ou para quem deu o golpe)
+  const RAIO_XP = 40;
+  CO.emDano = 0; CO.semXp = false;
   const dano0 = C.danoInimigo;
   C.danoInimigo = function (e, dmg, knock, ang, opts) {
     if (CO.convidado()) return golpeDoConvidado(e, dmg, knock, ang, opts);
     const vivo = e && e.state !== 'dead' && e.state !== 'liberto';
-    dano0.call(C, e, dmg, knock, ang, opts);
+    const doColega = !!(opts && opts.colega);
+    CO.emDano++; CO.semXp = doColega && e && Math.hypot(e.g.position.x - P.pos.x, e.g.position.z - P.pos.z) > RAIO_XP;
+    try { dano0.call(C, e, dmg, knock, ang, opts); } finally { CO.emDano--; CO.semXp = false; }
     if (CO.anfitriao() && CO.colegaOn && vivo && (e.state === 'dead' || e.state === 'liberto')) {
       const d = e.def;
-      CO.enviar({ t: 'morte', id: e.netId, x: r2(e.g.position.x), y: r2(e.g.position.y), z: r2(e.g.position.z), def: { key: d.key, nivel: d.nivel || 1, xp: d.xp || 0, moedas: d.moedas || 0, chefe: d.chefe ? 1 : 0, liberta: d.liberta ? 1 : 0, variante: d.variante || 0, animal: d.animal ? 1 : 0, fixo: d.fixo ? 1 : 0 }, fall: d.fall || 0 });
+      CO.enviar({ t: 'morte', id: e.netId, x: r2(e.g.position.x), y: r2(e.g.position.y), z: r2(e.g.position.z), seu: doColega ? 1 : 0, def: { key: d.key, nivel: d.nivel || 1, xp: d.xp || 0, moedas: d.moedas || 0, chefe: d.chefe ? 1 : 0, liberta: d.liberta ? 1 : 0, variante: d.variante || 0, animal: d.animal ? 1 : 0, fixo: d.fixo ? 1 : 0 }, fall: d.fall || 0 });
     }
+  };
+  // a experiência que não vem de vício vencido (missões, livros, achados) vale inteira para os dois
+  const xp0 = C.ganharXp;
+  C.ganharXp = function (n) {
+    if (CO.semXp) return;
+    const r = xp0.call(C, n);
+    if (CO.anfitriao() && CO.colegaOn && !CO.emDano && n > 0 && J.modo === 'jogo') CO.enviar({ t: 'xp', n: Math.round(n) });
+    return r;
   };
   function aplicarGolpeDoColega(m) {
     const e = porIdH(m.id); if (!e || e.state === 'dead' || e.state === 'liberto') return;
@@ -240,10 +283,47 @@
       if (CO.convidado()) return;
       const antes = ms.feita ? ms.feita(id) : true;
       con0.apply(ms, arguments);
-      if (CO.anfitriao() && CO.colegaOn && !antes && ms.MIS[id]) CO.enviar({ t: 'recompensa', nome: ms.MIS[id].nome, xp: ms.MIS[id].xp || 0 });
+      if (CO.anfitriao() && CO.colegaOn && !antes && ms.MIS[id]) anotarRecompensa(ms.MIS[id].nome);
     };
     ms.update = function () { if (CO.convidado()) return; return upd0.apply(ms, arguments); };
     ms.evento = function () { if (CO.convidado()) return false; return ev0.apply(ms, arguments); };
+  }
+  // o que o anfitrião tem agora: denários, itens (mochila, baú e equipados) e as peças da casa
+  function haveres() {
+    const p = P.pers || {}, mo = p.mochila || {}, t = {};
+    [mo.itens || {}, p.bau || {}].forEach(o => { for (const k in o) t[k] = (t[k] || 0) + (o[k] || 0); });
+    Object.values(mo.equip || {}).forEach(k => { if (k) t[k] = (t[k] || 0) + 1; });
+    return { den: p.denarios || 0, itens: t, decor: Object.keys((p.casa && p.casa.acervo) || {}) };
+  }
+  // a base é a de pelo menos um segundo antes (ou a de quando a conversa abriu): pega o que foi dado junto com a missão
+  let haverAntigo = null, haverNovo = null, recPend = null, recT = 0;
+  CO.marcarHaveres = function () { if (recPend || !P.pers) return; if (D.aberto && haverAntigo) return; haverAntigo = haverNovo || haveres(); haverNovo = haveres(); };
+  function anotarRecompensa(nome) {
+    if (!recPend) recPend = { nomes: [], base: haverAntigo || haveres() };
+    recPend.nomes.push(nome);
+    clearTimeout(recT); recT = setTimeout(fecharRecompensa, 2500);
+  }
+  function fecharRecompensa() {
+    const r = recPend; recPend = null; if (!r) return;
+    const a = r.base, b = haveres(), itens = {};
+    for (const k in b.itens) { const d = b.itens[k] - (a.itens[k] || 0); if (d > 0 && k !== 'exame' && OV.ITENS[k]) itens[k] = d; }
+    const decor = b.decor.filter(k => !a.decor.includes(k));
+    if (CO.colegaOn) CO.enviar({ t: 'recompensa', nomes: r.nomes, den: Math.max(0, b.den - a.den), itens, decor });
+    haverAntigo = haverNovo = b;
+  }
+  function receberRecompensa(m) {
+    if (!P.pers || J.modo !== 'jogo') return;
+    const IT = OV.itens, partes = [];
+    if (m.den > 0) { P.pers.denarios = (P.pers.denarios || 0) + m.den; partes.push(`${m.den} denários`); }
+    for (const id in (m.itens || {})) {
+      const n = m.itens[id], it = OV.ITENS[id]; if (!it || !(n > 0)) continue;
+      if (!IT.dar(id, n, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + n;
+      partes.push(`${it.nome}${n > 1 ? ' ×' + n : ''}`);
+    }
+    (m.decor || []).forEach(k => { if (OV.casa && OV.casa.DECOR[k] && OV.casa.ganhar(k, true)) partes.push(`${OV.casa.DECOR[k].nome} (para a casa)`); });
+    ui.toast(`Missão concluída: ${(m.nomes || []).join(', ')}.${partes.length ? ' Você também recebeu: ' + partes.join(', ') + '.' : ''}`);
+    if (IT.refresh) IT.refresh();
+    J.salvar();
   }
   // falas: tudo o que o anfitrião lê, o convidado lê junto (e o mundo fica parado para os dois)
   const ir0 = D.ir, fechar0 = D.fechar, abrir0 = D.abrir, continuar0 = D.continuar, escolher0 = D.escolher;
@@ -256,6 +336,7 @@
   D.fechar = function () {
     const era = D.aberto, espelho = CO.espelho; CO.espelho = false;
     fechar0.call(D);
+    if (!D.aberto) CO.servico = false;
     if (CO.anfitriao() && CO.colegaOn && era && !espelho && !D.aberto) CO.enviar({ t: 'fala', on: 0 });
   };
   D.continuar = function () { if (CO.espelho) return; return continuar0.call(D); };
@@ -273,10 +354,66 @@
     const hi = HI(); if (!hi || hi._coop) return; hi._coop = true;
     const pro0 = hi.prologo;
     hi.prologo = function (qual, fim) { if (CO.anfitriao() && CO.colegaOn && qual === 'historia') CO.enviar({ t: 'cena', qual }); return pro0.call(hi, qual, fim); };
+    // o anfitrião vira as páginas e fecha o livro; o convidado acompanha
+    hi.aoPrologo = (k, i) => { if (!(CO.anfitriao() && CO.colegaOn)) return; if (k === 'pag') CO.enviar({ t: 'cena_pag', i }); else CO.enviar({ t: 'cena_fim', prologo: 1 }); };
+  }
+  /* as cenas com câmera (os poemas dos chefões, a roda do moinho, os sinos): tocam para os dois ao mesmo tempo,
+     e quem começa e termina é o anfitrião */
+  function embrulharCenas() {
+    const CE = OV.cenas; if (!CE || CE._coop) return; CE._coop = true;
+    const poema0 = CE.poema, iniciar0 = CE.iniciar, encerrar0 = CE.encerrar;
+    const flags = () => (J.prog && J.prog.flags) || {};
+    CE.poema = function (key, op, depois) {
+      const vai = CO.anfitriao() && CO.colegaOn && CE.POEMAS[key] && !flags()['poema_' + key];
+      if (vai) { op = op || {}; CO.enviar({ t: 'poema', key, id: op.e && op.e.netId ? op.e.netId : 0, pos: op.pos ? { x: r2(op.pos.x), z: r2(op.pos.z) } : 0, raio: op.raio || 0, altura: op.altura !== undefined ? op.altura : null }); }
+      CO.emPoema = !!vai;
+      try { return poema0.call(CE, key, op, depois); } finally { CO.emPoema = false; }
+    };
+    CE.iniciar = function (cfg) {
+      if (CO.anfitriao() && CO.colegaOn && !CO.emPoema && cfg && !cfg.entrega && !cfg.espelhoHost) {
+        const a = typeof cfg.alvo === 'function' ? cfg.alvo() : cfg.alvo;
+        if (a) CO.enviar({ t: 'cena_cam', a: [r2(a.x), r2(a.y), r2(a.z)], raio: cfg.raio || 7, altura: cfg.altura || 3, giro: cfg.giro !== undefined ? cfg.giro : 0.12, olhar: cfg.olhar !== undefined ? cfg.olhar : 1.4 });
+      }
+      return iniciar0.call(CE, cfg);
+    };
+    CE.encerrar = function () {
+      const era = CE.ativa;
+      encerrar0.call(CE);
+      if (era && !era.entrega && !era.espelhoHost && CO.anfitriao() && CO.colegaOn) CO.enviar({ t: 'cena_fim' });
+    };
+  }
+  function cenaDoAnfitriao(m) {
+    if (J.modo !== 'jogo' || !OV.cenas) return;
+    const CE = OV.cenas;
+    if (m.t === 'poema') {
+      if (CE.ativa) CE.encerrar();
+      const e = m.id ? porIdC.get(m.id) : null;
+      CE.poemaEspelho(m.key, { e: e && !e.removed ? e : null, pos: m.pos || (e ? { x: e.g.position.x, z: e.g.position.z } : null), raio: m.raio || 0, altura: m.altura === null ? undefined : m.altura });
+    } else if (m.t === 'cena_cam') {
+      if (CE.ativa) CE.encerrar();
+      CE.iniciar({ alvo: new THREE.Vector3(m.a[0], m.a[1], m.a[2]), raio: m.raio, altura: m.altura, giro: m.giro, olhar: m.olhar, espelhoHost: true });
+    } else if (m.t === 'cena_fim') {
+      if (CE.ativa && CE.ativa.espelhoHost) CE.encerrar();
+      if (HI() && HI().espelhandoPrologo && HI().espelhandoPrologo()) HI().fecharPrologo();
+    } else if (m.t === 'cena_pag') { if (HI() && HI().paginaPrologo) HI().paginaPrologo(m.i); }
   }
   // o mundo (missões, flags, lâmpadas, baús) e a hora
   let ultimoMundo = '', mundoT = 0, horaT = 0;
-  function mundoAtual() { const p = Object.assign({}, J.prog); delete p.hora; return p; }
+  function mundoAtual() { const p = Object.assign({}, J.prog); delete p.hora; delete p.mortosMundo; delete p.diaMundo; return p; }
+  // os pontos das missões no mapa e na bússola: o anfitrião calcula, o convidado mostra
+  let alvosTxt = '';
+  function enviarAlvos() {
+    const RU = OV.rumo; if (!RU || !RU.ativas) return;
+    const a = {}; RU.ativas().forEach(id => { const p = RU.alvoBruto(id); if (p) a[id] = [r2(p.x), r2(p.z)]; });
+    const t = JSON.stringify(a); if (t === alvosTxt) return; alvosTxt = t; CO.enviar({ t: 'alvos', a });
+  }
+  if (OV.rumo && OV.rumo.alvoBruto) {
+    const bruto0 = OV.rumo.alvoBruto;
+    OV.rumo.alvoBruto = function (id) {
+      if (!(CO.convidado() && CO.alvosHost)) return bruto0.call(OV.rumo, id);
+      const p = CO.alvosHost[id]; return p ? { x: p[0], z: p[1] } : null;
+    };
+  }
   function enviarMundo(forcar) {
     if (!J.prog) return;
     const p = mundoAtual(), txt = JSON.stringify(p);
@@ -404,6 +541,15 @@
     const kb = 1 - Math.exp(-20 * dt);
     if (e.armL) e.armL.rotation.x = lerp(e.armL.rotation.x, armL, kb); if (e.armR) e.armR.rotation.x = lerp(e.armR.rotation.x, armR, kb);
     if (e.eye) e.eye.color.setHex(st === 'windup' ? 0xff3b2f : st === 'stun' ? 0x555555 : (e.eyeBase || 0xffd23a));
+    // o aviso antes do tiro e da onda: a bola de luz cresce na mão, como no anfitrião
+    const avisa = st === 'windup' && (e.tipoGolpe === 'tiro' || e.tipoGolpe === 'onda' || e.tipoGolpe === 'chuva');
+    if (avisa && !e.orbeR) {
+      const cor = (I.corProjetil ? I.corProjetil(e.def.key) : 0xff5a2a);
+      const o = new THREE.Mesh(new THREE.IcosahedronGeometry(e.tipoGolpe === 'onda' ? 0.5 : 0.22, 1), new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+      if (e.tipoGolpe === 'onda') { o.position.set(0, e.def.height * 0.75, 0.4); e.g.add(o); } else if (e.armR) { o.position.set(0, -0.85, 0.15); e.armR.add(o); } else e.g.add(o);
+      e.orbeR = o;
+    }
+    if (e.orbeR) { if (avisa) e.orbeR.scale.setScalar(0.3 + (e.k || 0) * 1.1); else { if (e.orbeR.parent) e.orbeR.parent.remove(e.orbeR); e.orbeR = null; } }
     if (e.def.ia) { try { e.def.ia(e, dt); } catch (err) { /* animações próprias de alguns chefões */ } }
   }
   const update0 = I.update;
@@ -412,6 +558,7 @@
     limparLocais();
     I.atualizarVisuais(dt);
     I.lista.forEach(e => animarReplica(e, dt));
+    if (OV.aventura && OV.aventura.atualizarEspelho) OV.aventura.atualizarEspelho(dt);
   };
   // os golpes do convidado: ele calcula a parte dele (arma, habilidades, itens) e o anfitrião aplica no vício de verdade
   function golpeDoConvidado(e, dmg, knock, ang, opts) {
@@ -448,7 +595,7 @@
   // a parte do convidado em cada vitória: XP, moedas e o que o vício deixar cair (sorteado para ele)
   function receberMorte(m) {
     if (J.modo !== 'jogo' || !P.pers || P.dead) return;
-    if (Math.hypot(m.x - P.pos.x, m.z - P.pos.z) > 70) return;
+    if (!m.seu && Math.hypot(m.x - P.pos.x, m.z - P.pos.z) > RAIO_XP) return;
     const fake = { def: Object.assign({}, m.def, { name: '' }), g: { position: new THREE.Vector3(m.x, m.y, m.z) }, tag: null, hp: 0, state: 'dead' };
     C.ganharXp(C.xpDe(fake));
     const mo = m.def.moedas;
@@ -462,6 +609,7 @@
     if (m.k === 'tiro') I.tiroVisual(m);
     else if (m.k === 'onda') I.ondaVisual(m);
     else if (m.k === 'marca' && I.marca) I.marca(m.x, m.z, m.r, m.dur, m.cor);
+    else if (m.k === 'impacto' && I.impactoVisual) I.impactoVisual(m.x, m.z, m.cor);
     else if (m.k === 'investida') {
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.2, m.len), new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
       pl.rotation.x = -Math.PI / 2; pl.rotation.z = m.a; pl.position.set(m.x, M.altura(m.x, m.z) + 0.07, m.z);
@@ -481,7 +629,12 @@
   function aplicarMundoAgora() {
     if (!mundoPendente || J.modo !== 'jogo' || performance.now() - aplicarT < 1500) return;
     mundoPendente = false; aplicarT = performance.now();
-    try { for (const id in M.oratorios) M.oratorios[id].acender(!!(J.prog.oratorios || {})[id]); if (MS().aplicarMundo) MS().aplicarMundo(); } catch (err) { console.warn('co-op: mundo', err); }
+    try {
+      for (const id in M.oratorios) M.oratorios[id].acender(!!(J.prog.oratorios || {})[id]);
+      CO.stubSpawn = true;
+      if (MS().aplicarMundo) MS().aplicarMundo();
+      if (MS().respawnQuest) MS().respawnQuest(); // os objetos de missão aparecem e somem como no anfitrião
+    } catch (err) { console.warn('co-op: mundo', err); } finally { CO.stubSpawn = false; }
     limparLocais();
   }
   // o convidado não conversa nem mexe no mundo (o anfitrião conduz); também não viaja sozinho
@@ -491,8 +644,101 @@
     // só o que é pessoal: o baú das capelas e a Casa do Peregrino
     let best = null, bd = 1e9;
     for (const i of M.interativos) { if (!i.pessoal) continue; const d = Math.hypot(i.x - x, i.z - z); if (d < i.r && d < bd && i.texto()) { bd = d; best = i; } }
-    return best;
+    return best || servicoProximo(x, z);
   };
+  /* os serviços que o convidado também usa, sem a conversa da história: a bênção do padre e a forja */
+  const SERVICOS = { tome: 'padre', gaspar: 'padre', abade: 'padre', lia: 'ferreiro', eustaquio: 'ferreiro', dunstano: 'ferreiro' };
+  const servicoCache = {};
+  function servicoProximo(x, z) {
+    let best = null, bd = 2.8;
+    for (const id in SERVICOS) {
+      const f = M.figuras[id]; if (!f || f.visivel === false) continue;
+      const d = Math.hypot(f.x - x, f.z - z); if (d < bd) { bd = d; best = id; }
+    }
+    if (!best) return null;
+    const f = M.figuras[best], nome = (f.op && f.op.nome) || 'Padre', tipo = SERVICOS[best];
+    const i = servicoCache[best] || (servicoCache[best] = { r: 2.8, pessoal: true });
+    i.x = f.x; i.z = f.z;
+    i.texto = () => tipo === 'padre' ? `Pedir a bênção a ${nome}` : `Pedir um trabalho na forja a ${nome}`;
+    i.acao = () => abrirServico(best, tipo, nome);
+    return i;
+  }
+  function abrirServico(id, tipo, nome) {
+    const IT = OV.itens;
+    CO.servico = true;
+    if (tipo === 'padre') {
+      const tem = IT.temCorrompidos();
+      D.abrir({ inicio: 'a', nos: {
+        a: { quem: nome, txt: tem ? 'A paz esteja com você. Quer que eu abençoe o que você carrega?' : 'A paz esteja com você. Três essências corrompidas viram um frasco de água benta, e um objeto profanado volta a servir a Deus. Quando tiver, é só trazer.',
+          opc: tem ? [{ t: 'Pedir a bênção sobre os itens corrompidos.', ir: 'b' }, { t: 'Agora não.' }] : null },
+        b: { quem: nome, txt: () => { const r = IT.purificar(); if (A.bell) { A.bell(523, 0.2); setTimeout(() => A.bell(659, 0.16), 220); } return `Em nome do Pai, do Filho e do Espírito Santo. O que o mal tomou para si volta a servir a Deus. Receba: ${r.join(', ')}.`; } }
+      } });
+    } else {
+      const OF = OV.oficio, cfg = OF && OF.FERREIROS && OF.FERREIROS[id];
+      const acesa = id !== 'lia' || (MS() && MS().feita && MS().feita('s5'));
+      if (!cfg || !acesa) D.abrir({ inicio: 'a', nos: { a: { quem: nome, txt: 'A forja ainda está fria. Quando ela voltar a arder, eu trabalho para você também.' } } });
+      else D.abrir(OF.menuFerreiro(cfg));
+    }
+    CO.servico = true;
+  }
+
+  /* a troca: dar um item da mochila ao colega */
+  const IT_ = OV.itens;
+  if (IT_) {
+    IT_.podeDarColega = id => CO.ativo() && CO.colegaOn && CO.conectado && J.modo === 'jogo' && id !== 'exame' && IT_.qtd(id) > 0;
+    IT_.nomeColega = () => CO.colegaNome || 'o colega';
+    IT_.darColega = function (id) {
+      if (!IT_.podeDarColega(id) || !IT_.tirar(id)) return;
+      CO.enviar({ t: 'presente', id }); if (A.bell) A.bell(659, 0.08);
+      ui.toast(`Você deu a ${CO.colegaNome || 'o colega'}: ${OV.ITENS[id].nome}.`);
+      J.salvar();
+    };
+  }
+  function receberPresente(m) {
+    const it = OV.ITENS[m.id]; if (!it || !P.pers || J.modo !== 'jogo') return;
+    const IT = OV.itens, quem = CO.colegaNome || 'O seu colega';
+    if (IT.dar(m.id, 1, true)) ui.toast(`${quem} deu a você: ${it.nome}.`);
+    else { P.pers.bau[m.id] = (P.pers.bau[m.id] || 0) + 1; ui.toast(`${quem} deu a você: ${it.nome}. A mochila está cheia: foi para o seu baú.`); }
+    if (A.bell) A.bell(784, 0.08);
+    IT.refresh(); J.salvar();
+  }
+
+  /* o baú da dupla: fica no mundo do anfitrião e os dois usam */
+  const duplaObj = () => { if (!J.prog) return {}; J.prog.bauDupla = J.prog.bauDupla || {}; return J.prog.bauDupla; };
+  if (IT_) IT_.dupla = {
+    ativo: () => J.modo === 'jogo' && !!J.prog && (CO.ativo() ? (CO.anfitriao() || CO.colegaOn) : Object.values(J.prog.bauDupla || {}).some(n => n > 0)),
+    lista: () => (J.prog && J.prog.bauDupla) || {},
+    guardar(id) {
+      if (CO.convidado() && !CO.colegaOn) { ui.toast('O anfitrião está fora: o baú da dupla espera ele voltar.'); return; }
+      if (!IT_.tirar(id)) return;
+      const b = duplaObj(); b[id] = (b[id] || 0) + 1;
+      if (CO.convidado()) CO.enviar({ t: 'dupla', op: 'guardar', id }); else { J.salvar(); if (CO.colegaOn) enviarMundo(true); }
+      J.salvar();
+    },
+    pegar(id) {
+      const b = duplaObj(); if (!(b[id] > 0)) return;
+      if (!IT_.cabe(1, id)) { ui.toast('A mochila está cheia.'); return; }
+      if (CO.convidado()) {
+        if (!CO.colegaOn) { ui.toast('O anfitrião está fora: o baú da dupla espera ele voltar.'); return; }
+        b[id]--; if (b[id] <= 0) delete b[id];
+        CO.enviar({ t: 'dupla', op: 'pegar', id }); // o item chega quando o anfitrião confirma
+      } else {
+        b[id]--; if (b[id] <= 0) delete b[id];
+        IT_.mochila().itens[id] = (IT_.mochila().itens[id] || 0) + 1;
+        J.salvar(); if (CO.colegaOn) enviarMundo(true);
+      }
+    }
+  };
+  function duplaDoConvidado(m) {
+    if (J.modo !== 'jogo' || !OV.ITENS[m.id]) return;
+    const b = duplaObj();
+    if (m.op === 'guardar') b[m.id] = (b[m.id] || 0) + 1;
+    else if (m.op === 'pegar') {
+      if (b[m.id] > 0) { b[m.id]--; if (b[m.id] <= 0) delete b[m.id]; CO.enviar({ t: 'dupla_ok', id: m.id }); }
+      else CO.enviar({ t: 'dupla_nao', id: m.id });
+    }
+    J.salvar(); enviarMundo(true); if (OV.itens.refresh) OV.itens.refresh();
+  }
   const interagir0 = J.interagir;
   J.interagir = function () {
     if (CO.convidado()) {
@@ -545,7 +791,7 @@
   /* =====================================================================
      O RELÓGIO DO CO-OP: manda o próprio estado e cuida do mundo
      ===================================================================== */
-  let ultimoTick = performance.now();
+  let ultimoTick = performance.now(), haverT = 0;
   setInterval(() => {
     const agora = performance.now(), dt = Math.min(0.5, (agora - ultimoTick) / 1000); ultimoTick = agora;
     atualizarFaixa(); atualizarTag(true);
@@ -554,8 +800,9 @@
     CO.enviar(meuEstado());
     if (CO.anfitriao() && CO.colegaOn) {
       CO.enviar({ t: 'inim', l: fotoInimigos() });
-      mundoT -= dt; if (mundoT <= 0) { mundoT = 1; enviarMundo(false); }
+      mundoT -= dt; if (mundoT <= 0) { mundoT = 1; enviarMundo(false); enviarAlvos(); }
       horaT -= dt; if (horaT <= 0 && OV.tempo) { horaT = 2; CO.enviar({ t: 'hora', h: r2(OV.tempo.hora) }); }
+      haverT -= dt; if (haverT <= 0) { haverT = 1; CO.marcarHaveres(); }
       andarJuntos(dt);
     }
     if (CO.convidado()) { aplicarMundoAgora(); if (J.ativo()) convidadoPerto(dt); }
@@ -578,16 +825,24 @@
       case 'ferir': if (CO.convidado()) serFerido(m); break;
       case 'fx': if (CO.convidado()) efeitoRemoto(m); break;
       case 'fala': if (CO.convidado() && J.modo === 'jogo') mostrarFala(m); break;
-      case 'cena': if (CO.convidado() && HI() && J.modo === 'jogo') HI().prologo(m.qual, null); break;
+      case 'cena': if (CO.convidado() && HI() && J.modo === 'jogo') HI().prologoEspelho(m.qual, CO.colegaNome); break;
+      case 'poema': case 'cena_cam': case 'cena_fim': case 'cena_pag': if (CO.convidado()) cenaDoAnfitriao(m); break;
+      case 'entrega': if (CO.convidado() && J.modo === 'jogo' && OV.aventura && OV.aventura.espelharEntrega && R.alvo && Math.hypot(R.alvo.x - P.pos.x, R.alvo.z - P.pos.z) < 60) OV.aventura.espelharEntrega(Object.assign(m, { quem: R })); break;
+      case 'alvos': if (CO.convidado()) CO.alvosHost = m.a || {}; break;
       case 'hora': if (CO.convidado() && OV.tempo && Math.abs(OV.tempo.hora - m.h) > 0.08 && Math.abs(OV.tempo.hora - m.h) < 23.9) OV.tempo.definir(m.h); break;
       case 'aviso': if (CO.convidado()) ui.toast(m.txt); break;
-      case 'recompensa': if (CO.convidado() && P.pers) { ui.toast(`Missão concluída: ${m.nome}`); if (m.xp) C.ganharXp(m.xp); J.salvar(); } break;
+      case 'recompensa': if (CO.convidado()) receberRecompensa(m); break;
+      case 'xp': if (CO.convidado() && P.pers && J.modo === 'jogo') C.ganharXp(m.n || 0); break;
+      case 'presente': receberPresente(m); break;
+      case 'dupla': if (CO.anfitriao()) duplaDoConvidado(m); break;
+      case 'dupla_ok': if (CO.convidado() && P.pers) { const IT = OV.itens; if (!IT.dar(m.id, 1, true)) P.pers.bau[m.id] = (P.pers.bau[m.id] || 0) + 1; IT.refresh(); J.salvar(); } break;
+      case 'dupla_nao': if (CO.convidado()) { ui.toast('Esse item já tinha saído do baú da dupla.'); OV.itens.refresh(); } break;
       case 'teleporte': if (CO.convidado() && J.modo === 'jogo') { irParaColega(true, m.x, m.z, m.f); if (m.motivo === 'longe') ui.toast(`Você se afastou demais e voltou para perto de ${CO.colegaNome || 'o anfitrião'}.`); } break;
       case 'fim': if (CO.convidado()) { aviso(`${CO.colegaNome || 'O anfitrião'} encerrou a sessão. O seu personagem foi salvo.`); encerrar(true); } break;
       // do convidado para o anfitrião
       case 'golpe': if (CO.anfitriao()) aplicarGolpeDoColega(m); break;
       case 'atordoar': if (CO.anfitriao()) { const e = porIdH(m.id); if (e) atordoar0.call(I, e, m.s || 1); } break;
-      case 'pedir_mundo': if (CO.anfitriao() && J.modo === 'jogo') enviarMundo(true); break;
+      case 'pedir_mundo': if (CO.anfitriao() && J.modo === 'jogo') { enviarMundo(true); alvosTxt = ''; enviarAlvos(); } break;
       // dos dois lados
       case 'fxp': efeitoDoColega(m); break;
     }
@@ -596,7 +851,7 @@
     CO.colegaOn = true; CO.colegaNome = nome || CO.colegaNome;
     if (CO.anfitriao()) {
       ui.toast(`${CO.colegaNome || 'Seu colega'} ${voltou ? 'voltou para' : 'entrou na'} sala.`); A.bell(659, 0.12);
-      if (J.modo === 'jogo') { ultimoMundo = ''; enviarMundo(true); }
+      if (J.modo === 'jogo') { ultimoMundo = ''; alvosTxt = ''; enviarMundo(true); }
     } else if (J.modo === 'jogo') CO.enviar({ t: 'pedir_mundo' });
     atualizarTag();
   }
@@ -697,7 +952,7 @@
     const r = await esperar(m => m.t === 'sala' || m.t === 'erro', 10000);
     if (!r || r.t !== 'sala') { aviso(r ? r.msg : 'O servidor não respondeu.'); return; }
     CO.papel = 'anfitriao'; CO.codigo = r.codigo; CO.ficha = r.ficha; CO.colegaOn = false;
-    embrulharMissoes(); embrulharHistoria();
+    embrulharMissoes(); embrulharHistoria(); embrulharCenas();
     telaAnfitriao();
   }
   function telaAnfitriao() {
@@ -728,7 +983,7 @@
     const r = await esperar(m => m.t === 'sala' || m.t === 'erro', 10000);
     if (!r || r.t !== 'sala') { aviso(r ? r.msg : 'O servidor não respondeu.'); if (CO.ws) try { CO.ws.close(); } catch (e) { /* nada */ } return; }
     CO.papel = 'convidado'; CO.codigo = r.codigo; CO.ficha = r.ficha; CO.colegaOn = !!r.colegaOn; CO.colegaNome = r.colega || 'o anfitrião'; CO.mundoHost = null;
-    embrulharMissoes(); embrulharHistoria();
+    embrulharMissoes(); embrulharHistoria(); embrulharCenas();
     CO.enviar({ t: 'pedir_mundo' });
     telaConvidado();
   }
@@ -758,8 +1013,8 @@
     else if (a === 'cancelar') { encerrar(false); irMenu0.call(J); }
   });
 
-  // as embalagens que dependem de módulos carregados antes (missões, história) entram já
-  embrulharMissoes(); embrulharHistoria();
+  // as embalagens que dependem de módulos carregados antes (missões, história, cenas) entram já
+  embrulharMissoes(); embrulharHistoria(); embrulharCenas();
   // o menu já estava na tela antes deste arquivo carregar: desenha de novo, agora com o co-op
   if (J.modo === 'menu' && ui.ovAberto()) ui.menu(S.ler());
   CO._teste = { R, porIdC, fotoInimigos, limparLocais, receber, motivoLocal };

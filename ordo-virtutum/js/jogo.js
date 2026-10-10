@@ -437,19 +437,21 @@
   }
 
   /* passo de simulação usado por testes automáticos */
-  J.passo = function (dt) { if (!J.ativo()) return; C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); cuidarDoMundo(dt); };
+  // o mundo segue vivo? No jogo solo, só quando nenhuma tela está aberta; no co-op, as telas não param o mundo (coop.js)
+  J.mundoVivo = () => J.ativo();
+  J.passo = function (dt) { if (!J.mundoVivo()) return; C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); cuidarDoMundo(dt); };
 
   /* ---- laço ---- */
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now; tempo += dt;
-    const vivo = J.ativo();
+    const vivo = J.mundoVivo();
     let fx = 0, fz = 0;
     if (J.modo === 'jogo') {
       if (vivo) { C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); cuidarDoMundo(dt); }
       C.animarHeroi(vivo ? dt : 0);
-      const it = vivo && !P.dead && P.oratT <= 0 ? M.interativoProximo(P.pos.x, P.pos.z) : null;
+      const it = J.ativo() && !P.dead && P.oratT <= 0 ? M.interativoProximo(P.pos.x, P.pos.z) : null;
       ui.prompt(it ? `<kbd>E</kbd> ${ui.esc(it.texto())}` : null);
       if (J.mapa) MP.desenhar();
       fx = P.pos.x; fz = P.pos.z;

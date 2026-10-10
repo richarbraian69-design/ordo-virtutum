@@ -671,6 +671,18 @@ body:has(#mapa:not([hidden])) :is(#minimapa,#bussola,#tracker,#toast){visibility
 #inv .cs-faltam{margin:0;padding-left:18px;font-size:14px;line-height:1.45;color:var(--tinta)}
 #inv .cs-faltam small{color:var(--tinta2)}
 @media (max-width:700px){#inv .cs-cols{grid-template-columns:1fr}}
+/* ---- v20: o prólogo espelhado no convidado ---- */
+#prologo.espelho [data-pl]{display:none}
+#prologo .pl-espera{font-family:var(--body);font-style:italic;color:#e8dcc0;opacity:.85}
+#inv .inv-abas{display:flex;gap:6px;margin:6px 0 -6px}
+#inv .inv-abas button{background:none;border:1px solid var(--tinta3);color:var(--rubro2);font-family:var(--display);font-size:13px;padding:3px 10px;cursor:pointer}
+#inv .inv-abas button.on{border-color:var(--ouro);background:rgba(201,149,47,.22)}
+/* ---- v20: o vício atordoado ---- */
+.foe.atordoado::before{content:"✦ atordoado ✦";display:block;font-family:var(--display);font-weight:400;font-size:12px;letter-spacing:.08em;color:#ffe08a;text-shadow:0 0 4px #000,0 1px 2px #000;animation:atord .5s ease-in-out infinite alternate}
+@keyframes atord{from{transform:translateY(0);opacity:.75}to{transform:translateY(-3px);opacity:1}}
+/* ---- v20: alcance da ordem e "cresce com" ---- */
+.ordem em.alc{display:block;font-style:normal;font-family:var(--display);font-size:11px;letter-spacing:.08em;color:var(--ouro);margin-top:2px}
+#ficha .hab i.cresce{display:block;font-style:normal;font-family:var(--display);font-size:12px;letter-spacing:.04em;color:var(--ouro);margin-top:2px}
 </style>
 
 <canvas id="c" aria-label="Ordo Virtutum, cena 3D"></canvas>
