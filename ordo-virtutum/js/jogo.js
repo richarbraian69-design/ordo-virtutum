@@ -92,6 +92,7 @@
     J.comecar(pers, prog, true);
   };
   J.continuar = function () {
+    if (!S.ler()) { const n = S.ultimo('solo'); if (n) S.usar('solo', n); } // o «Continuar» do menu: o último mundo individual
     const s = S.ler(); if (!s || !s.pers) { J.irMenu(); return; }
     J.comecar(s.pers, normalizarProg(s.prog), false);
   };
@@ -293,9 +294,17 @@
     const b = e.target.closest('[data-act]'); if (!b) return;
     const act = b.dataset.act;
     A.init();
-    if (act === 'continuar') J.continuar();
-    else if (act === 'novo') { const s = S.ler(); if (s && s.pers) ui.confirmarNovo(s); else J.iniciarCriacao(); }
+    if (act === 'continuar') { const n = S.ultimo('solo'); if (n) S.usar('solo', n); J.continuar(); }
+    else if (act === 'jogar') { if (S.usar(b.dataset.tipo, +b.dataset.slot)) J.continuar(); }
+    else if (act === 'novo') {
+      // cada mundo tem o seu espaço: um novo mundo nunca apaga outro sem perguntar
+      if (b.dataset.slot) S.usar(b.dataset.tipo, +b.dataset.slot);
+      else if (!S.slot || S.ler()) { const t = S.slot ? S.tipo : S.padrao, n = S.livre(t); if (n) S.usar(t, n); }
+      const s = S.ler(); if (s && s.pers) ui.confirmarNovo(s); else J.iniciarCriacao();
+    }
     else if (act === 'apagar-e-criar') { S.apagar(); J.iniciarCriacao(); }
+    else if (act === 'apagar-slot') ui.confirmarApagar(b.dataset.tipo, +b.dataset.slot);
+    else if (act === 'apagar-confirmado') { S.apagarSlot(b.dataset.tipo, +b.dataset.slot); if (S.slot === +b.dataset.slot && S.tipo === b.dataset.tipo) S.slot = 0; ui.menu(); }
     else if (act === 'menu') J.irMenu();
     else if (act === 'professar') J.professar();
     else if (act === 'retomar') J.retomar();

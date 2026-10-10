@@ -16,7 +16,7 @@
   const { turnTo, lerp } = OV.util;
   const $ = id => document.getElementById(id);
   const esc = s => ui.esc(String(s));
-  const VERSAO = '21';
+  const VERSAO = '22';
   const MULT = 2.5;
 
   const CO = { papel: null, codigo: null, ficha: null, ws: null, conectado: false, colegaOn: false, colegaNome: '', seq: 0, atkSeq: 0, mundoHost: null, espelho: false };
@@ -624,7 +624,7 @@
     if (J.modo === 'jogo' && CO.convidado()) { J.prog = JSON.parse(JSON.stringify(m.prog)); mundoPendente = true; return; }
     // fora do jogo: nunca redesenha a tela por cima da criação do personagem; só libera os botões
     if (CO.entrandoCom) { const pers = CO.entrandoCom; CO.entrandoCom = null; J.comecar(pers, null, false); return; }
-    if (primeiro) atualizarTelaConvidado();
+    if (primeiro || document.querySelector('#ov .coop-convidado [data-entrar][disabled]')) atualizarTelaConvidado(); // botões ainda apagados: acende
   }
   function aplicarMundoAgora() {
     if (!mundoPendente || J.modo !== 'jogo' || performance.now() - aplicarT < 1500) return;
@@ -901,6 +901,7 @@
     if (CO.convidado() && J.modo === 'jogo') J.salvar();
     const eraConvidado = CO.convidado();
     CO.papel = null; CO.codigo = null; CO.ficha = null; CO.colegaOn = false; CO.mundoHost = null; CO.espelho = false; CO.entrandoCom = null; CO.separados = false;
+    S.padrao = 'solo';
     tirarColega(); porIdC.clear(); atualizarTag();
     setTimeout(() => { CO.saindo = false; }, 500);
     if (voltarAoMenu && J.modo === 'jogo') setTimeout(() => { if (D.aberto) fechar0.call(D); irMenu0.call(J); }, eraConvidado ? 2500 : 0);
@@ -931,9 +932,10 @@
     menu0.call(ui, save);
     const card = document.querySelector('#ov .card.menu'); if (!card) return;
     const div = document.createElement('div'); div.className = 'coop-menu';
-    if (CO.disponivel()) div.innerHTML = `<p class="eyebrow">Co-op · 2 jogadores</p><div class="menu-actions"><button class="btn ghost" data-coop="criar">Criar sala</button><button class="btn ghost" data-coop="entrar">Entrar com código</button></div>`;
-    else div.innerHTML = `<p class="eyebrow">Co-op · 2 jogadores</p><p class="note">O co-op funciona quando o jogo é aberto pelo link do servidor (Render).</p>`;
-    const acoes = card.querySelector('.menu-actions'); if (acoes) acoes.insertAdjacentElement('afterend', div); else card.appendChild(div);
+    if (CO.disponivel()) div.innerHTML = `<div class="menu-actions"><button class="btn ghost" data-coop="criar">Criar sala</button><button class="btn ghost" data-coop="entrar">Entrar com código</button></div>`;
+    else div.innerHTML = `<p class="note">O co-op funciona quando o jogo é aberto pelo link do servidor (Render).</p>`;
+    const alvo = card.querySelector('.menu-coop');
+    if (alvo) alvo.appendChild(div); else { const acoes = card.querySelector('.menu-actions'); if (acoes) acoes.insertAdjacentElement('afterend', div); else card.appendChild(div); }
   };
   function telaStatus(titulo, txt) {
     ui.ov(`<div class="card coop"><p class="eyebrow">Co-op · 2 jogadores</p><h2 class="title">${titulo}</h2><p class="coop-status" id="coopStatus">${txt}</p><div class="menu-actions"><button class="btn ghost" data-coop="cancelar">Voltar</button></div></div>`, 'menu');
@@ -944,9 +946,12 @@
     if (!ok) { aviso('O servidor não respondeu. Confira a internet e tente de novo.'); return null; }
     try { const ws = await abrirWs(); ligar(ws); return ws; } catch (e) { aviso('Não foi possível conectar à sala. Tente de novo.'); return null; }
   }
+  // ao abrir ou entrar numa sala, nenhum mundo está escolhido ainda: quem joga escolhe um dos 3 mundos de co-op
+  function prepararMundosCoop() { S.slot = 0; S.padrao = 'coop'; }
+  const ultimoCoop = () => { const n = S.ultimo('coop'); return n ? S.lerSlot('coop', n) : null; };
   async function criarSala() {
-    CO.saindo = false;
-    const s = S.ler();
+    CO.saindo = false; prepararMundosCoop();
+    const s = ultimoCoop();
     if (!(await conectarComAviso())) return;
     CO.enviar({ t: 'criar', versao: VERSAO, nome: s && s.pers ? s.pers.nome : 'Anfitrião' });
     const r = await esperar(m => m.t === 'sala' || m.t === 'erro', 10000);
@@ -956,13 +961,13 @@
     telaAnfitriao();
   }
   function telaAnfitriao() {
-    const s = S.ler();
-    const cont = s && s.pers ? `<button class="btn" data-act="continuar" data-foco>Continuar com ${esc(s.pers.nome)}</button>` : '';
     ui.ov(`<div class="card coop"><p class="eyebrow">Co-op · você é o anfitrião</p><h2 class="title">Sala criada</h2>
       <p class="coop-codigo" aria-label="Código da sala">${CO.codigo}</p>
       <p class="coop-status" id="coopStatus">Passe este código ao seu colega. Ele abre o mesmo link e escolhe «Entrar com código».</p>
       <ul class="coop-regras"><li>O jogo acontece no <b>seu</b> mundo, e é você quem salva.</li><li>Todos os vícios ficam <b>2,5x mais fortes e mais resistentes</b>.</li><li>Quem abre um menu congela o mundo para os dois.</li><li>Vocês andam juntos: barco, viagem e masmorra levam o colega.</li></ul>
-      <div class="menu-actions">${cont}<button class="btn${cont ? ' ghost' : ''}" data-act="novo">Novo jogo</button><button class="btn ghost" data-coop="cancelar">Cancelar</button></div></div>`, 'menu');
+      <p class="eyebrow mundos-tit">Escolha o mundo de co-op</p>${ui.mundos('coop', 'anfitriao')}
+      <div class="menu-actions"><button class="btn ghost" data-coop="cancelar">Cancelar</button></div></div>`, 'menu');
+    const f = document.querySelector('#ov .mundos .btn'); if (f) f.setAttribute('data-foco', '');
   }
   function telaCodigo() {
     ui.ov(`<div class="card coop"><p class="eyebrow">Co-op · entrar numa sala</p><h2 class="title">Código da sala</h2>
@@ -976,8 +981,8 @@
   async function juntar() {
     const inp = $('coopCodigo'); const codigo = inp ? inp.value.trim().toUpperCase() : '';
     if (!/^[A-Z]{4}$/.test(codigo)) { aviso('O código tem 4 letras.'); return; }
-    CO.saindo = false;
-    const s = S.ler();
+    CO.saindo = false; prepararMundosCoop();
+    const s = ultimoCoop();
     if (!(await conectarComAviso())) return;
     CO.enviar({ t: 'entrar', codigo, versao: VERSAO, nome: s && s.pers ? s.pers.nome : 'Convidado' });
     const r = await esperar(m => m.t === 'sala' || m.t === 'erro', 10000);
@@ -989,13 +994,12 @@
   }
   function telaConvidado() {
     if (!CO.convidado() || J.modo === 'jogo') return;
-    const s = S.ler(), pronto = !!CO.mundoHost;
-    const espera = 'Esperando o anfitrião começar';
-    const cont = s && s.pers ? `<button class="btn" data-act="continuar" data-foco data-entrar ${pronto ? '' : 'disabled'}>${pronto ? `Entrar com ${esc(s.pers.nome)} (nível ${s.pers.nivel})` : espera}</button>` : '';
+    const pronto = !!CO.mundoHost;
     ui.ov(`<div class="card coop coop-convidado"><p class="eyebrow">Co-op · você é o convidado</p><h2 class="title">Sala ${CO.codigo}</h2>
       <p class="coop-status" id="coopStatus">${pronto ? `Você vai jogar no mundo de ${esc(CO.colegaNome)}. Escolha o seu personagem:` : `${esc(CO.colegaNome)} ainda não começou o jogo. Os botões se acendem assim que o mundo dele abrir.`}</p>
       <ul class="coop-regras"><li>Você leva o seu personagem: XP, moedas e itens ficam com você.</li><li>O mundo, as missões e as conversas são do anfitrião; você vê e luta junto.</li><li>Os baús das capelas e a Casa do Peregrino são seus: abra quando quiser.</li></ul>
-      <div class="menu-actions">${cont}<button class="btn${cont ? ' ghost' : ''}" data-act="novo" data-entrar ${pronto ? '' : 'disabled'}>${pronto ? 'Criar um personagem' : (cont ? 'Criar um personagem' : espera)}</button><button class="btn ghost" data-coop="cancelar">Sair da sala</button></div></div>`, 'menu');
+      <p class="eyebrow mundos-tit">Com qual personagem? (os seus mundos de co-op)</p>${ui.mundos('coop', 'convidado', pronto)}
+      <div class="menu-actions"><button class="btn ghost" data-coop="cancelar">Sair da sala</button></div></div>`, 'menu');
   }
   // o mundo do anfitrião chegou: acende os botões na tela que já está aberta, sem trocar de tela
   function atualizarTelaConvidado() {

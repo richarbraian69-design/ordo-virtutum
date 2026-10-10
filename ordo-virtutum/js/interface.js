@@ -233,30 +233,72 @@
   </dl>`;
   ui.controles = CONTROLES;
 
-  ui.menu = function (save) {
-    let cont = '';
-    if (save && save.pers) {
-      const o = OV.ORDENS[save.pers.ordem];
-      cont = `<button class="btn" data-act="continuar" data-foco>Continuar</button>
-      <p class="savemeta">${esc(save.pers.nome)} · ${esc(o.titulo[save.pers.sexo])} · Nível ${save.pers.nivel}</p>`;
-    }
+  /* ---- os mundos salvos (v22): até 3 individuais e até 3 de co-op, cada um separado ---- */
+  ui.atoDe = function (save) {
+    const f = (save && save.prog && save.prog.flags) || {};
+    if (f.ato4_fim) return ['Ato IV concluído', 'A Lâmpada da Castidade'];
+    if (f.ato3_fim) return ['Ato IV', 'A Corte das Máscaras'];
+    if (f.ato2_fim) return ['Ato III', 'As Minas de Mamom'];
+    if (f.ato1_fim) return ['Ato II', 'Os Portos do Festim'];
+    return ['Ato I', 'O Vale de Santa Sabina'];
+  };
+  const quando = t => { if (!t) return ''; const d = new Date(t); const p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)} às ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  ui.descMundo = function (s) {
+    const o = OV.ORDENS[s.pers.ordem], classe = o && o.titulo ? o.titulo[s.pers.sexo] || o.titulo.m : s.pers.ordem;
+    return `${esc(classe)} · Nível ${s.pers.nivel} · ${ui.atoDe(s)[0]}`;
+  };
+  // modo: 'menu' (individuais no menu), 'lista' (co-op no menu: só ver e apagar), 'anfitriao', 'convidado'
+  ui.mundos = function (tipo, modo, pronto) {
+    const S = OV.save, lista = S.lista(tipo), coop = tipo === 'coop';
+    return `<ol class="mundos" data-mundos="${tipo}">${lista.map((s, i) => {
+      const n = i + 1, at = `data-tipo="${tipo}" data-slot="${n}"`, trava = modo === 'convidado' ? ` data-entrar${pronto ? '' : ' disabled'}` : '';
+      let info, acoes = '';
+      if (s) {
+        info = `<b>${esc(s.pers.nome)}</b><span>${ui.descMundo(s)}</span>${s.salvoEm ? `<small>salvo em ${quando(s.salvoEm)}</small>` : ''}`;
+        if (modo === 'menu') acoes = `<button class="btn mini" data-act="jogar" ${at}>Jogar</button><button class="btn ghost mini" data-act="apagar-slot" ${at} aria-label="Apagar o mundo de ${esc(s.pers.nome)}">Apagar</button>`;
+        else if (modo === 'lista') acoes = `<button class="btn ghost mini" data-act="apagar-slot" ${at} aria-label="Apagar o mundo de ${esc(s.pers.nome)}">Apagar</button>`;
+        else if (modo === 'anfitriao') acoes = `<button class="btn mini" data-act="jogar" ${at}>Jogar este mundo</button>`;
+        else acoes = `<button class="btn mini" data-act="jogar" ${at}${trava}>Entrar com ${esc(s.pers.nome)}</button>`;
+      } else {
+        info = `<b class="vago">Mundo ${n}</b><span>${coop ? 'livre para um mundo de co-op' : 'livre'}</span>`;
+        if (modo === 'menu') acoes = `<button class="btn ghost mini" data-act="novo" ${at}>Novo mundo</button>`;
+        else if (modo === 'anfitriao') acoes = `<button class="btn ghost mini" data-act="novo" ${at}>Novo mundo co-op</button>`;
+        else if (modo === 'convidado') acoes = `<button class="btn ghost mini" data-act="novo" ${at}${trava}>Criar personagem</button>`;
+      }
+      return `<li class="mundo${s ? '' : ' vazio'}"><span class="mundo-n">${n}</span><div class="mundo-info">${info}</div><div class="mundo-acoes">${acoes}</div></li>`;
+    }).join('')}</ol>`;
+  };
+  ui.menu = function () {
+    const S = OV.save, ult = S.ultimo('solo'), s = ult ? S.lerSlot('solo', ult) : null;
+    const cont = s && s.pers ? `<button class="btn" data-act="continuar" data-foco>Continuar</button><p class="savemeta">${esc(s.pers.nome)} · ${ui.descMundo(s)} · ${ui.atoDe(s)[1]}</p>` : '';
     ui.ov(`<div class="card menu">
-      <p class="eyebrow">${(() => { const f = (save && save.prog && save.prog.flags) || {}; return f.ato4_fim ? 'Ato IV concluído · A Lâmpada da Castidade' : f.ato3_fim ? 'Ato IV · A Corte das Máscaras' : f.ato2_fim ? 'Ato III · As Minas de Mamom' : f.ato1_fim ? 'Ato II · Os Portos do Festim' : 'Ato I · O Vale de Santa Sabina'; })()}</p>
+      <p class="eyebrow">${s && s.pers ? ui.atoDe(s).join(' · ') : 'Escolha o seu mundo'}</p>
       <h1 class="title big">Ordo Virtutum</h1>
       <p class="motto">A ordem das virtudes contra o reino dos vícios</p>
       ${RULE}
-      <div class="menu-actions">${cont}<button class="btn${save ? ' ghost' : ''}" data-act="novo">Novo jogo</button></div>
+      ${cont ? `<div class="menu-actions">${cont}</div>` : ''}
+      <p class="eyebrow mundos-tit">Mundos individuais · até ${S.LIMITE}</p>
+      ${ui.mundos('solo', 'menu')}
+      <div class="menu-coop"><p class="eyebrow mundos-tit">Mundos de co-op · até ${S.LIMITE}</p>${ui.mundos('coop', 'lista')}</div>
       <p class="note" id="touchNote" hidden>Este jogo usa teclado e mouse. Abra no computador para jogar.</p>
-      <p class="foot">Atos I e II · O Vale de Santa Sabina e os Portos do Festim</p>
+      <p class="foot">Atos I a IV · do Vale de Santa Sabina à Corte das Máscaras</p>
     </div>`, 'menu');
     if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) $('touchNote').hidden = false;
   };
   ui.confirmarNovo = function (save) {
     ui.ov(`<div class="card">
-      <p class="eyebrow">Novo jogo</p><h1 class="title">Começar de novo?</h1>${RULE}
-      <p>O progresso salvo de <em>${esc(save.pers.nome)}</em> será apagado.</p>
+      <p class="eyebrow">Novo mundo</p><h1 class="title">Começar de novo aqui?</h1>${RULE}
+      <p>O mundo de <em>${esc(save.pers.nome)}</em> (${ui.descMundo(save)}) será apagado. Os outros mundos ficam como estão.</p>
       <div class="menu-actions"><button class="btn" data-act="apagar-e-criar" data-foco>Apagar e começar</button><button class="btn ghost" data-act="menu">Voltar</button></div>
     </div>`);
+  };
+  ui.confirmarApagar = function (tipo, n) {
+    const s = OV.save.lerSlot(tipo, n); if (!s || !s.pers) { ui.menu(); return; }
+    ui.ov(`<div class="card">
+      <p class="eyebrow">${tipo === 'coop' ? 'Mundo de co-op' : 'Mundo individual'} ${n}</p><h1 class="title">Apagar este mundo?</h1>${RULE}
+      <p>O mundo de <em>${esc(s.pers.nome)}</em> (${ui.descMundo(s)}) será apagado para sempre. Os outros mundos ficam como estão.</p>
+      <div class="menu-actions"><button class="btn" data-act="apagar-confirmado" data-tipo="${tipo}" data-slot="${n}">Apagar</button><button class="btn ghost" data-act="menu" data-foco>Voltar</button></div>
+    </div>`, 'menu');
   };
 
   /* ---- criação de personagem ---- */

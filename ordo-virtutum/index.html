@@ -683,6 +683,26 @@ body:has(#mapa:not([hidden])) :is(#minimapa,#bussola,#tracker,#toast){visibility
 /* ---- v20: alcance da ordem e "cresce com" ---- */
 .ordem em.alc{display:block;font-style:normal;font-family:var(--display);font-size:11px;letter-spacing:.08em;color:var(--ouro);margin-top:2px}
 #ficha .hab i.cresce{display:block;font-style:normal;font-family:var(--display);font-size:12px;letter-spacing:.04em;color:var(--ouro);margin-top:2px}
+
+/* ---- v22: os mundos salvos (3 individuais, 3 de co-op) ---- */
+#ov .card.menu{max-width:700px}
+.mundos-tit{margin:14px 0 6px !important}
+.mundos{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.mundo{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid rgba(93,70,49,.45);background:rgba(255,248,226,.32)}
+.mundo.vazio{border-style:dashed;background:transparent}
+.mundo-n{font-family:var(--display);font-size:20px;color:var(--rubro);text-align:center}
+.mundo-info{min-width:0;display:grid;gap:1px}
+.mundo-info b{font-family:var(--display);font-weight:400;font-size:18px;color:var(--tinta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mundo-info b.vago{color:var(--tinta2)}
+.mundo-info span{font-size:15px;color:var(--tinta2)}
+.mundo-info small{font-family:var(--mono);font-size:12px;color:var(--tinta3)}
+.mundo-acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btn.mini{font-size:15px;padding:6px 14px}
+.btn:disabled{opacity:.5;cursor:default}
+.menu-coop{margin-top:14px;padding-top:4px;border-top:1px solid rgba(58,36,16,.25)}
+.menu-coop .coop-menu{margin-top:8px;padding-top:0;border-top:0}
+@media (max-width:560px){.mundo{grid-template-columns:22px 1fr}.mundo-acoes{grid-column:2;justify-content:flex-start}}
+#ov .card.menu .title.big{font-size:clamp(44px,7.5vw,80px)}
 </style>
 
 <canvas id="c" aria-label="Ordo Virtutum, cena 3D"></canvas>
