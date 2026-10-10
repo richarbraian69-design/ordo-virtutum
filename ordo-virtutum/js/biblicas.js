@@ -204,14 +204,14 @@
     salasDef: [{ inimigos: [['caranguejo', 11], ['caranguejo', 11], ['larva_gula', 11], ['larva_gula', 11]] }, { inimigos: [['caranguejo', 12, 'forte'], ['larva_gula', 12, 'forte'], ['larva_gula', 12], ['caranguejo', 12]] }, { chefe: ['sede', 13], inimigos: [['larva_gula', 12], ['larva_gula', 12]] }],
     tesouro: { den: [80, 120], itens: [['agua', 3]], equip: true, raro: 0.5 } });
   { // a boca do túnel por onde se desce: pedras e a corda pendurada
-    const e = MP.W(0, 27.3), y = H(e.x, e.z), gr = M.grupo(e.x, e.z, 0);
+    const e = MP.W(0, MP.HD + 0.3), y = H(e.x, e.z), gr = M.grupo(e.x, e.z, 0);
     for (let i = 0; i < 6; i++) { const r = mesh(new THREE.DodecahedronGeometry(0.9 + (i % 3) * 0.3, 0), M.MAT.rock, -2.2 + i * 0.9, 0.6 + (i % 2) * 0.5, 0.4); gr.add(r); }
     gr.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 7, 4), sm(0x8a7a5a), 0, 3.5, -1.0));
     fundir(gr); M.caixa(e.x, e.z, 2.6, 0.6, 0);
   }
   const dentroDoPoco = () => P.pos.x > 400 && P.pos.x < 480 && P.pos.z < -120 && P.pos.z > -220;
   function descer() {
-    const p = MP.W(0, 23.5);
+    const p = MP.W(0, MP.HD - 3.5);
     ui.clarao('#000000'); C().resetAcoes(); C().posicionar(p.x, p.z, Math.PI); OV.cam.yaw = 0; OV.jogo.mudouLugar();
     ui.toast('Você desce pela corda. Lá embaixo, a água some num túnel de pedra.');
     if (MS.ativa('p_poco') && MS.etapa('p_poco') === 0) MS.avancar('p_poco', 1);
@@ -221,11 +221,11 @@
     if (MS.feita('p_poco') && !(st('p_poco') && MS.ativa('p_poco'))) { const ok = !AV.masmorraFeita('poco'); if (!ok && Math.random() < 0.5) { descer(); return; } P.fe = Math.min(P.D.maxFe, P.fe + 15); P.hp = Math.min(P.D.maxHp, P.hp + 15); ui.toast('A água é fresca e limpa. Você se sente renovado.'); return; }
     descer();
   });
-  { const s = MP.W(0, 25.4); M.interativo(s.x, s.z, 2.2, () => 'Subir pela corda do poço', subir); }
+  { const s = MP.W(0, MP.HD - 1.6); M.interativo(s.x, s.z, 2.2, () => 'Subir pela corda do poço', subir); }
   AV.npc('fotina', 'Fotina, a do poço', POCO.x - 2.8, POCO.z - 2.2, 0.9, { cor: 0x4a5a6a, veu: 0x8a7a6a });
   AV.missao({ id: 'p_poco', ato: 2, nome: 'O Poço da Samaritana', npc: 'fotina', xp: 260, den: 50, itens: [['agua', 3]],
     etapas: ['Desça pela corda do poço da praça e descubra o que bebe a água do Festim.', () => `Vença o que mora no fundo do poço (salas: ${AV.salasLivres('poco')}/3).`, 'Volte a Fotina, junto ao poço.'],
-    alvos: [() => POCO, () => dentroDoPoco() ? MP.W(0, -18) : POCO, () => { const f = M.figuras.fotina; return f ? { x: f.x, z: f.z } : null; }],
+    alvos: [() => POCO, () => dentroDoPoco() ? MP.W(0, -MP.HD * 0.66) : POCO, () => { const f = M.figuras.fotina; return f ? { x: f.x, z: f.z } : null; }],
     convite: 'Desde que o banquete começou, o balde desce cheio de corda e volta seco. O povo bebe vinho, porque água não há. Dizem que lá embaixo alguma coisa bebe toda a água antes que ela suba. O meu nome é o mesmo da samaritana do Evangelho, sabia? Ela também veio ao poço com sede.',
     aceitar: 'Eu desço ao fundo do poço.', aceito: 'Há uma corda boa amarrada na trave. Desça devagar, e volte. Eu fico aqui, rezando.',
     lembrete: () => MS.etapa('p_poco') === 0 ? 'A corda está amarrada na trave do poço. Desça devagar.' : `Ainda há sede lá embaixo (salas: ${AV.salasLivres('poco')}/3).`,

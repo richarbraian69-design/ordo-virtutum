@@ -375,6 +375,18 @@
   const camTarget = new THREE.Vector3(), camDesired = new THREE.Vector3();
   let tempo = 0;
   J.atualizarCamera = dt => atualizarCamera(dt);
+  let camDist = 6.6, camChefeT = 0, emLutaChefe = false;
+  const EM_LUTA = new Set(['chase', 'windup', 'recover', 'investida', 'stun']);
+  J.lutaChefe = function () {
+    const I = OV.inimigos; if (!I || !I.lista || P.dead) return false;
+    for (const e of I.lista) {
+      if (!EM_LUTA.has(e.state) || e.hp <= 0) continue;
+      const d = e.def || {};
+      if (!(I.CHEFES.has(d.key) || d.chefe || e.chefeMasmorra)) continue;
+      if (Math.hypot(e.g.position.x - P.pos.x, e.g.position.z - P.pos.z) < 38) return true;
+    }
+    return false;
+  };
   function atualizarCamera(dt) {
     const camera = M.camera;
     if (J.modo === 'menu') {
@@ -397,7 +409,11 @@
       cam.yaw = turnTo(cam.yaw, want, 4 * dt);
       cam.pitch = lerp(cam.pitch, 0.25, 1 - Math.exp(-3 * dt));
     }
-    const dist = 6.6, cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    // em luta contra um chefão a câmera se afasta sozinha, para caber a arena e dar espaço para esquivar
+    camChefeT -= dt;
+    if (camChefeT <= 0) { camChefeT = 0.25; emLutaChefe = J.lutaChefe(); }
+    camDist = lerp(camDist, emLutaChefe ? 9.6 : 6.6, 1 - Math.exp(-1.6 * dt));
+    const dist = camDist, cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw), off = 0.7;
     camTarget.set(P.pos.x + rx * off, P.pos.y + 2.05 + (P.heroi ? P.heroi.body.position.y * 0.6 : 0), P.pos.z + rz * off); // o centro da câmera um pouco acima do herói: mais campo de visão
     camDesired.set(camTarget.x + Math.sin(cam.yaw) * cp * dist, camTarget.y + sp * dist + 0.3, camTarget.z + Math.cos(cam.yaw) * cp * dist);

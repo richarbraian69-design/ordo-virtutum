@@ -5,28 +5,28 @@
   const M = OV.mundo; if (!M || M.falhou) return;
   const L = {
     /* ---- Vale de Santa Sabina ---- */
-    priorado: { x: -80, z: -125, r: 36, rot: 0, regiao: 'vale' },          // masmorra: as Ruínas do Priorado Esquecido
-    simao: { x: -66, z: -88, r: 5, regiao: 'vale' },
+    priorado: { x: -80, z: -125, r: 44, rot: 0, regiao: 'vale' },          // masmorra: as Ruínas do Priorado Esquecido
+    simao: { x: -66, z: -83, r: 5, regiao: 'vale' },
     carvoaria: { x: 40, z: -150, r: 12, regiao: 'vale' },
     clotilde: { x: 152, z: 38, r: 9, regiao: 'vale' },
     benedita: { x: -160, z: -30, r: 11, regiao: 'vale' },
     tadeu: { x: 32, z: 126, r: 5, regiao: 'vale' },
     /* ---- Portos do Festim ---- */
-    gruta: { x: -100, z: 600, r: 36, rot: Math.PI / 2, regiao: 'porto' },  // masmorra: a Gruta dos Contrabandistas
-    cosme: { x: -63, z: 606, r: 5, regiao: 'porto' },
+    gruta: { x: -100, z: 600, r: 44, rot: Math.PI / 2, regiao: 'porto' },  // masmorra: a Gruta dos Contrabandistas
+    cosme: { x: -58, z: 606, r: 5, regiao: 'porto' },
     dulce: { x: 96, z: 588, r: 10, regiao: 'porto' },
     bento: { x: -62, z: 735, r: 7, regiao: 'porto' },
     simplicio: { x: 48, z: 722, r: 5, regiao: 'porto' },
     /* ---- Minas de Mamom ---- */
-    pocos: { x: -1012, z: 112, r: 36, rot: Math.PI, regiao: 'minas' },    // masmorra: a Mina dos Sete Poços
+    pocos: { x: -1012, z: 122, r: 44, rot: Math.PI, regiao: 'minas' },    // masmorra: a Mina dos Sete Poços
     leandro: { x: -1000, z: 72, r: 5, regiao: 'minas' },
     aurelio: { x: -790, z: 40, r: 9, regiao: 'minas' },
     teodora: { x: -938, z: 132, r: 7, regiao: 'minas' },
     fonte: { x: -850, z: 148, r: 6, regiao: 'minas' },
     lucas: { x: -948, z: 98, r: 5, regiao: 'minas' },
     /* ---- Corte das Máscaras ---- */
-    mausoleu: { x: -100, z: -1020, r: 36, rot: 0, regiao: 'corte' },      // masmorra: o Mausoléu dos Duques
-    ludovico: { x: -86, z: -983, r: 5, regiao: 'corte' },
+    mausoleu: { x: -100, z: -1020, r: 44, rot: 0, regiao: 'corte' },      // masmorra: o Mausoléu dos Duques
+    ludovico: { x: -86, z: -978, r: 5, regiao: 'corte' },
     lucio: { x: 130, z: -815, r: 8, regiao: 'corte' },
     monica: { x: -34, z: -828, r: 5, regiao: 'corte' },
     gaudencio: { x: 42, z: -790, r: 5, regiao: 'corte' }

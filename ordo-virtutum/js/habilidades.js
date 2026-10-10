@@ -371,7 +371,7 @@
     /* --- Dominicanos --- */
     sermao() {
       const o = C().origemMao();
-      for (let i = -2; i <= 2; i++) { const a = P.facing + i * 0.22; C().lancar({ origem: o, dir: new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), dano: P.D.dano * 1.2, cor: 0xffd8a0, brilho: 0xff6a1a, alcance: 13, raio: 0.2 }); }
+      for (let i = -2; i <= 2; i++) { const a = P.facing + i * 0.22; C().lancar({ origem: o, dir: C().direcaoTiro(o, a, 13, i === 0 ? P.mira : null), dano: P.D.dano * 1.2, cor: 0xffd8a0, brilho: 0xff6a1a, alcance: 13, raio: 0.2 }); }
       A.cast();
     },
     suma() { H.suma = 0; darBuff('suma', 12); C().anel(0xffe2a0, 2.5, 0.8, 0.7); ui.toast('Suma: cada acerto seguido fortalece o próximo.'); },
@@ -469,7 +469,7 @@
     /* --- Santo Antão --- */
     flechaAbencoada() {
       const o = C().origemMao(), t = alvoProx(26);
-      const dir = t ? new THREE.Vector3(t.g.position.x - o.x, (t.g.position.y + 1.1) - o.y, t.g.position.z - o.z) : new THREE.Vector3(Math.sin(P.facing), 0, Math.cos(P.facing));
+      const dir = t ? C().direcaoTiro(o, angPara(t), 28, t) : C().direcaoTiro(o, P.facing, 28, null);
       if (t) P.facing = angPara(t);
       C().lancar({ origem: o, dir, dano: P.D.dano * 2.2, flecha: true, pesado: true, perfura: 99, vel: 32, alcance: 28, cor: 0xffffff, brilho: 0xffd27a, explode: false });
       A.cast();

@@ -25,17 +25,17 @@
       return h;
     },
     planos: [
-      { x: 0, z: 60, r: 36, h: 2 }, { x: 0, z: -50, r: 30, h: 4 }, { x: -88, z: -24, r: 30, h: 2.5 }, { x: 96, z: -46, r: 17, h: 5 },
+      { x: 0, z: 60, r: 36, h: 2 }, { x: 0, z: -50, r: 36, h: 4 }, { x: -88, z: -24, r: 30, h: 2.5 }, { x: 96, z: -46, r: 17, h: 5 },
       { x: 70, z: 20, r: 10, h: 2.4 }, { x: 0, z: 150, r: 10, h: 2 }
     ],
     estradas: [
       [[0, 158], [0, 120], [0, 74]],
-      [[0, 46], [0, 12], [0, -30]],
+      [[0, 46], [0, 12], [0, -25]],
       [[-14, 60], [-40, 50], [-60, 10], [-64, -2]],
       [[14, 56], [45, 40], [64, 28]],
       [[4, 6], [40, -12], [70, -34], [86, -42]]
     ],
-    zonas: [['belmonte', 0, 60, 46], ['palacio', 0, -50, 22], ['espelhos', -88, -24, 26], ['lago', 70, 30, 18], ['figueira', 96, -46, 16]],
+    zonas: [['belmonte', 0, 60, 46], ['palacio', 0, -50, 28], ['espelhos', -88, -24, 26], ['lago', 70, 30, 18], ['figueira', 96, -46, 16]],
     locais: {
       belmonte: { nome: 'Belmonte', x: 0, z: 60, oy: -60 },
       palacio: { nome: 'Palácio dos Bailes', x: 0, z: -50, oy: -36 },
@@ -126,30 +126,31 @@
 
   /* ================= O PALÁCIO DOS BAILES ================= */
   (function () {
-    const px = 0, pz = -50, w = 26, d = 34, h = 11;
+    // v21: o salão do baile ficou bem mais amplo (36 x 44 m), para a luta contra Asmodeu ter espaço
+    const px = 0, pz = -50, w = 36, d = 44, h = 11;
     const pal = R.casaInt(px, pz, 0, w, d, h, { mat: MATC.marmore, roof: MATC.telhaAzul, rh: 5, piso: MAT.stone, nome: 'Palácio dos Bailes' });
-    R.PALACIO = pal;
+    R.PALACIO = pal; pal.w = w; pal.d = d;
     // colunas, lustres e espelhos
     for (let k = 0; k < 5; k++) [-1, 1].forEach(s => {
-      const lx = s * 9, lz = -12 + k * 6;
+      const lx = s * 13, lz = -16 + k * 8;
       pal.g.add(mesh(new THREE.CylinderGeometry(0.45, 0.5, h - 0.4, 10), MATC.marmoreE, lx, 0.2 + (h - 0.4) / 2, lz));
       const q = pal.W(lx, lz); M.obstacles.push({ x: q.x, z: q.z, r: 0.6 });
     });
-    [[-4.5, -8], [4.5, -8], [-4.5, 4], [4.5, 4]].forEach(([lx, lz]) => {
+    [[-6, -10], [6, -10], [-6, 6], [6, 6]].forEach(([lx, lz]) => {
       const lu = new THREE.Group(); lu.position.set(lx, 7.8, lz); pal.g.add(lu);
       const aro = mesh(new THREE.TorusGeometry(1.0, 0.06, 6, 20), MATC.ouro, 0, 0, 0); aro.rotation.x = Math.PI / 2; lu.add(aro);
       for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; lu.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 6), MAT.wax, Math.cos(a), 0.12, Math.sin(a))); const fl = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 5), MAT.flame); fl.position.set(Math.cos(a), 0.3, Math.sin(a)); lu.add(fl); M.flames.push(fl); }
       lu.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 3, 4), MATC.ouro, 0, 1.6, 0));
       const q = pal.W(lx, lz); M.emissor(q.x, H(px, pz) + 7.6, q.z, 1.3, 14, 0xffd090);
     });
-    // espelhos nas paredes laterais
-    for (let k = 0; k < 4; k++) [-1, 1].forEach(s => { const e = mesh(new THREE.BoxGeometry(0.08, 3.4, 1.8), MATC.espelho, s * (w / 2 - 0.42), 2.6, -10 + k * 7); pal.g.add(e); });
+    // (os espelhos das paredes laterais, de moldura dourada, ficam em arenas.js)
     // o estrado do fundo, com o trono vazio do anfitrião
-    pal.g.add(mesh(new THREE.BoxGeometry(10, 0.5, 5), MATC.marmoreE, 0, 0.45, -14.2));
-    const tr = new THREE.Group(); tr.position.set(0, 0.7, -15.4); pal.g.add(tr);
+    const ZE = -d / 2 + 2.8; // o estrado encostado na parede do fundo
+    pal.g.add(mesh(new THREE.BoxGeometry(12, 0.5, 5), MATC.marmoreE, 0, 0.45, ZE));
+    const tr = new THREE.Group(); tr.position.set(0, 0.7, ZE - 1.2); pal.g.add(tr);
     tr.add(mesh(new THREE.BoxGeometry(1.8, 1, 1.4), MATC.veludo, 0, 0.5, 0)); tr.add(mesh(new THREE.BoxGeometry(2, 4, 0.3), MATC.veludo, 0, 2.2, -0.6)); tr.add(mesh(new THREE.BoxGeometry(2.2, 0.2, 0.4), MATC.ouro, 0, 4.2, -0.6));
-    for (let i = 0; i < 7; i++) { const m = mesh(new THREE.BoxGeometry(0.34, 0.42, 0.06), MATC.mascara, -1.8 + i * 0.6, 5.2 + (i % 2) * 0.3, -16.7); pal.g.add(m); }
-    { const q = pal.W(0, -14.2); M.caixa(q.x, q.z, 5, 2.5, 0); }
+    for (let i = 0; i < 7; i++) { const m = mesh(new THREE.BoxGeometry(0.34, 0.42, 0.06), MATC.mascara, -1.8 + i * 0.6, 5.2 + (i % 2) * 0.3, ZE - 2.5); pal.g.add(m); }
+    { const q = pal.W(0, ZE); M.caixa(q.x, q.z, 6, 2.5, 0); }
     // torres e fachada
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz], i) => {
       const tx = px + sx * (w / 2 + 2), tz = pz + sz * (d / 2 + 1);

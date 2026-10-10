@@ -305,18 +305,20 @@
       if (chefe.slam > 0) {
         chefe.slam -= dt; e.state = 'recover'; e.t = 0.6;
         if (chefe.slam <= 0) {
-          const d = Math.hypot(P.pos.x - e.g.position.x, P.pos.z - e.g.position.z);
+          const A0 = chefe.slamArea || { x: e.g.position.x, z: e.g.position.z, r: 6 }; chefe.slamArea = null;
           C().faisca(e.g.position.x, e.g.position.y + 0.3, e.g.position.z, 0xffc040); J().shake(0.5); if (A.heavy) A.heavy();
-          if (d < 6) C().ferirJogador(28, 'avareza');
+          I.golpeArea(A0, 28, 'avareza', e);
           chefe.slamT = 5.5;
         }
       } else {
         chefe.slamT -= dt;
         if (chefe.slamT <= 0 && (e.state === 'chase' || e.state === 'idle')) {
           chefe.slam = 1.4; e.state = 'recover'; e.t = 1.4;
+          chefe.slamArea = { x: e.g.position.x, z: e.g.position.z, r: 6 };
           const disco = new THREE.Mesh(new THREE.CircleGeometry(6, 32), new THREE.MeshBasicMaterial({ color: 0xc8901a, transparent: true, opacity: 0.1, depthWrite: false }));
           disco.rotation.x = -Math.PI / 2; disco.position.set(e.g.position.x, M.altura(e.g.position.x, e.g.position.z) + 0.08, e.g.position.z);
           C().efeito([disco], 1.4, p => { disco.material.opacity = 0.1 + 0.4 * p; disco.scale.setScalar(0.3 + 0.7 * p); });
+          if (I.aoFx) I.aoFx({ k: 'marca', x: chefe.slamArea.x, z: chefe.slamArea.z, r: chefe.slamArea.r, dur: 1.4, cor: 0xc8901a }); // o colega vê o mesmo círculo
           ui.toast('Mamom ergue a mão de ouro: afaste-se ou esquive!');
         }
       }

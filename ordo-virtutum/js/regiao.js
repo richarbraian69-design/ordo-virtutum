@@ -104,6 +104,7 @@
     R.livre = function (lx, lz, m) {
       if (Math.abs(lx) > LIM - 2 || Math.abs(lz) > LIM - 2) return false;
       if (R.distEstrada(lx, lz) < 3.5 + m) return false;
+      if (M.reservado && M.reservado(X(lx), Z(lz), m)) return false; // os lugares das aventuras (masmorras, acampamentos) ficam livres de árvores e pedras
       if (M.CASAS_PEREGRINO && M.CASAS_PEREGRINO.some(([rg, x, z]) => rg === R.id && Math.hypot(X(lx) - x, Z(lz) - z) < 9 + m)) return false;
       for (const p of R.PLANOS) if (p.semArvore !== false && Math.hypot(lx - p.x, lz - p.z) < p.r * 0.85 + m) return false;
       for (const [x, z, w, d] of R.RECTS) if (Math.abs(lx - x) < w / 2 + 2 + m && Math.abs(lz - z) < d / 2 + 2 + m) return false;

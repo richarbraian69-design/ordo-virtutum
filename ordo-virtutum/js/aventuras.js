@@ -151,7 +151,7 @@
     return b;
   };
   const conta = cfg => () => `${AV.colhidos(cfg).length}/${cfg.pontos.length}`;
-  const entradaDe = id => () => { const m = AV.masmorras.find(x => x.id === id); return m ? m.W(0, 30) : null; };
+  const entradaDe = id => () => { const m = AV.masmorras.find(x => x.id === id); return m ? m.W(0, m.HD + 3) : null; };
   // quando a masmorra é purificada, a missão dela avança (ou já começa adiantada)
   const ligarMasmorra = (qid, mid) => MS.ganchos.evento.push((tipo, x) => { if (tipo === 'masmorra' && x && x.id === mid && MS.ativa(qid) && MS.etapa(qid) === 0) { MS.avancar(qid, 1); setTimeout(() => ui.toast(`${MS.MIS[qid].nome}: volte para contar o que houve.`), 2600); } return false; });
   const jaFeita = (qid, mid) => () => { if (AV.masmorraFeita(mid)) MS.avancar(qid, 1); };

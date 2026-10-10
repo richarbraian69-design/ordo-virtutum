@@ -5,8 +5,9 @@
   const M = OV.mundo; if (!M || M.falhou) return;
   const { lerp, rnd, angWrap } = OV.util;
   const sm = OV.sm, mesh = OV.mesh, scene = M.scene;
-  const X = 300, CZ = -38, R = 14;
-  const CR = { X, iniciado: false, fase: 0, chefe: null };
+  // v21: a Câmara do Meio-Dia ficou bem maior (raio 22 m), e o ossuário e a sala dos monges, mais largos
+  const X = 300, R = 22, CZ = -24 - R;
+  const CR = { X, CZ, R, iniciado: false, fase: 0, chefe: null };
   OV.cripta = CR;
 
   /* ---- chão e teto ---- */
@@ -69,29 +70,31 @@
   for (let z = 52; z < 60; z += 1) scene.add(mesh(new THREE.BoxGeometry(6, 0.12, 0.12), col, X, CR.altura(0, z) + 0.06, z));
   tocha(297.4, 56, 1); tocha(302.6, 56, -1);
   /* B: ossuário */
-  parede(295.7, 22, 296.5, 50, -2, 4.6); parede(303.5, 22, 304.3, 50, -2, 4.6);
-  piso(296.5, 22, 303.5, 50); tampa(295.7, 22, 304.3, 50, 2.4);
+  parede(293.9, 22, 294.7, 50, -2, 4.6); parede(305.3, 22, 306.1, 50, -2, 4.6);
+  parede(294.7, 49.2, 297, 50, -2, 4.6); parede(303, 49.2, 305.3, 50, -2, 4.6);
+  piso(294.7, 22, 305.3, 50); tampa(293.9, 22, 306.1, 50, 2.4);
   for (let z = 25; z < 49; z += 3.2) [-1, 1].forEach(s => {
-    const x = X + s * 3.35;
+    const x = X + s * 5.15;
     scene.add(mesh(new THREE.BoxGeometry(0.25, 1.2, 2.2), sm(0x080605), x, -0.4, z));
     for (let k = 0; k < 3; k++) scene.add(mesh(new THREE.SphereGeometry(0.13, 6, 5), osso, x - s * 0.08, -0.85 + (k % 2) * 0.35, z - 0.6 + k * 0.6));
   });
-  for (let z = 26; z < 50; z += 8) { tocha(296.9, z, 1); tocha(303.1, z + 4, -1); }
+  for (let z = 26; z < 50; z += 8) { tocha(295.1, z, 1); tocha(304.9, z + 4, -1); }
   /* rampa B→C */
   parede(296.2, 17.6, 297, 22, -4, 7); parede(303, 17.6, 303.8, 22, -4, 7);
+  parede(293.9, 21.6, 297, 22.4, -4, 7); parede(303, 21.6, 306.1, 22.4, -4, 7);
   piso(297, 17.6, 303, 22); tampa(296.2, 17.6, 303.8, 22, 2.4);
   /* C: sala dos monges */
-  parede(290.2, -12, 291, 18, -4, 7); parede(309, -12, 309.8, 18, -4, 7);
-  parede(290.2, 18, 297, 18.8, -4, 7); parede(303, 18, 309.8, 18.8, -4, 7);
-  parede(290.2, -12.8, 297, -12, -4, 7); parede(303, -12.8, 309.8, -12, -4, 7);
-  piso(291, -12, 309, 18); tampa(290.2, -12.8, 309.8, 18.8, 3);
-  [[294, 12], [306, 12], [294, 2], [306, 2], [294, -8], [306, -8]].forEach(([x, z]) => {
+  parede(286.2, -12, 287, 18, -4, 7); parede(313, -12, 313.8, 18, -4, 7);
+  parede(286.2, 18, 297, 18.8, -4, 7); parede(303, 18, 313.8, 18.8, -4, 7);
+  parede(286.2, -12.8, 297, -12, -4, 7); parede(303, -12.8, 313.8, -12, -4, 7);
+  piso(287, -12, 313, 18); tampa(286.2, -12.8, 313.8, 18.8, 3);
+  [[292, 12], [308, 12], [292, 2], [308, 2], [292, -8], [308, -8]].forEach(([x, z]) => {
     scene.add(mesh(new THREE.CylinderGeometry(0.42, 0.5, 7, 8), col, x, -0.5, z)); M.obstacles.push({ x, z, r: 0.55 });
   });
-  [[292, 6], [308, -3]].forEach(([x, z]) => { scene.add(mesh(new THREE.BoxGeometry(1.4, 0.9, 2.6), col, x, -3.55, z)); M.obstacles.push({ x, z, r: 1.1 }); });
-  scene.add(mesh(new THREE.BoxGeometry(1.6, 1.0, 0.8), sm(0x3a2a1c), 307.5, -3.5, 14)); M.obstacles.push({ x: 307.5, z: 14, r: 0.9 });
-  scene.add(mesh(new THREE.BoxGeometry(0.5, 0.08, 0.36), sm(0x6e1414), 307.5, -2.95, 14));
-  tocha(291.4, 8, 1); tocha(308.6, 8, -1); tocha(291.4, -6, 1); tocha(308.6, -6, -1);
+  [[289, 6], [311, -3]].forEach(([x, z]) => { scene.add(mesh(new THREE.BoxGeometry(1.4, 0.9, 2.6), col, x, -3.55, z)); M.obstacles.push({ x, z, r: 1.1 }); });
+  scene.add(mesh(new THREE.BoxGeometry(1.6, 1.0, 0.8), sm(0x3a2a1c), 310.5, -3.5, 14)); M.obstacles.push({ x: 310.5, z: 14, r: 0.9 });
+  scene.add(mesh(new THREE.BoxGeometry(0.5, 0.08, 0.36), sm(0x6e1414), 310.5, -2.95, 14));
+  tocha(287.4, 8, 1); tocha(312.6, 8, -1); tocha(287.4, -6, 1); tocha(312.6, -6, -1);
   /* D: corredor para a câmara */
   parede(296.2, -22, 297, -12, -6, 6); parede(303, -22, 303.8, -12, -6, 6);
   piso(297, -24.5, 303, -12); tampa(296.2, -22, 303.8, -12, 2.2);
@@ -104,21 +107,22 @@
   const portao = M.caixa(X, -22.4, 3, 0.3, 0); portao.ativa = false;
   CR.fecharPortao = b => { grade.visible = b; portao.ativa = b; };
 
-  /* E: câmara do meio-dia (círculo de 16 segmentos, aberto ao norte) */
-  for (let i = 0; i < 16; i++) {
-    const a = i / 16 * Math.PI * 2 + Math.PI / 16;
-    if (Math.abs(angWrap(a - Math.PI / 2)) < 0.25) continue;
+  /* E: câmara do meio-dia (círculo de 24 segmentos, aberto ao norte) */
+  const NSEG = 24, LSEG = 2 * Math.PI * (R + 0.4) / NSEG + 0.25;
+  for (let i = 0; i < NSEG; i++) {
+    const a = i / NSEG * Math.PI * 2 + Math.PI / NSEG;
+    if (Math.abs(angWrap(a - Math.PI / 2)) < 0.2) continue;
     const x = X + Math.cos(a) * (R + 0.4), z = CZ + Math.sin(a) * (R + 0.4), rot = -a - Math.PI / 2;
-    const m = mesh(new THREE.BoxGeometry(5.8, 11, 1), wall, x, -6 + 5.5, z); m.rotation.y = rot; scene.add(m);
-    M.caixa(x, z, 2.9, 0.5, rot);
+    const m = mesh(new THREE.BoxGeometry(LSEG, 11, 1), wall, x, -6 + 5.5, z); m.rotation.y = rot; scene.add(m);
+    M.caixa(x, z, LSEG / 2, 0.5, rot);
   }
   // muro curto que fecha as laterais da entrada norte
   parede(290.2, -24.6, 297, -23.8, -6, 11); parede(303, -24.6, 309.8, -23.8, -6, 11);
   const disco = new THREE.Mesh(new THREE.CircleGeometry(R + 0.6, 24), chao); disco.rotation.x = -Math.PI / 2; disco.position.set(X, -6.01, CZ); disco.receiveShadow = true; scene.add(disco);
   const anelTeto = new THREE.Mesh(new THREE.RingGeometry(2.6, R + 1.5, 24), teto); anelTeto.rotation.x = Math.PI / 2; anelTeto.position.set(X, 5, CZ); scene.add(anelTeto);
   // altar quebrado no fundo
-  scene.add(mesh(new THREE.BoxGeometry(3, 1.1, 1.4), col, X, -5.45, CZ - 11)); M.obstacles.push({ x: X, z: CZ - 11, r: 1.4 });
-  [[-8, -6], [8, -6], [-8, 6], [8, 6]].forEach(([dx, dz]) => tocha(X + dx, CZ + dz, 0));
+  scene.add(mesh(new THREE.BoxGeometry(3, 1.1, 1.4), col, X, -5.45, CZ - R + 3)); M.obstacles.push({ x: X, z: CZ - R + 3, r: 1.4 });
+  [[-13, -9], [13, -9], [-13, 9], [13, 9]].forEach(([dx, dz]) => tocha(X + dx, CZ + dz, 0));
 
   /* raio de sol do meio-dia */
   const raio = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.6, 11, 18, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -154,7 +158,9 @@
     const max = e.def.hp;
     if (CR.fase === 1 && e.hp < max * 0.66) {
       CR.fase = 2; sombraDe(e, false);
-      const pos = [0, 1, 2].map(i => { const a = i / 3 * Math.PI * 2 + rnd(0, 1); return { x: X + Math.cos(a) * 7, z: CZ + Math.sin(a) * 7 }; });
+      // os três surgem do lado oposto ao peregrino, em leque: o caminho de volta fica livre para ele escapar
+      const P = OV.P, aj = Math.atan2(P.pos.z - CZ, P.pos.x - X) + Math.PI;
+      const pos = [-0.75, 0, 0.75].map(k => { const a = aj + k; return { x: X + Math.cos(a) * (R * 0.55), z: CZ + Math.sin(a) * (R * 0.55) }; });
       e.g.position.set(pos[0].x, -6, pos[0].z);
       [1, 2].forEach(i => { const s = OV.inimigos.spawn('sombra', false, pos[i]); s.tag = 'sombra'; s.state = 'chase'; sombraDe(s, true); });
       OV.combate.faisca(e.g.position.x, -4, e.g.position.z, 0xfff1c8); OV.jogo.shake(0.3); OV.audio.bell(220, 0.25);
@@ -207,7 +213,7 @@
   CR.update = function (dt) {
     tSol += dt;
     const a = tSol * 0.16;
-    CR.sol.x = X + Math.cos(a) * 7; CR.sol.z = CZ + Math.sin(a) * 7;
+    CR.sol.x = X + Math.cos(a) * R * 0.5; CR.sol.z = CZ + Math.sin(a) * R * 0.5;
     raio.position.set(CR.sol.x, -0.5, CR.sol.z); poca.position.set(CR.sol.x, -5.95, CR.sol.z);
     luzSol.x = CR.sol.x; luzSol.z = CR.sol.z;
     raio.material.opacity = 0.15 + 0.04 * Math.sin(tSol * 2);

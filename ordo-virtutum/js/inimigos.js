@@ -292,6 +292,9 @@
   /* ---- os alvos: o jogador e, no co-op, o colega (o anfitrião simula os vícios para os dois) ---- */
   I.alvos = () => (OV.coop && OV.coop.alvosRemotos ? [OV.P].concat(OV.coop.alvosRemotos()) : [OV.P]);
   const ferirAlvo = (P, dano, status, fonte, ang) => { if (P.remoto) OV.coop.ferirRemoto(P, { dano, status, fonte, ang }); else C_().ferirJogador(dano, status, fonte); };
+  I.ferirAlvo = ferirAlvo;
+  // golpe em área dos chefões: fere quem estiver dentro do círculo desenhado, conferindo a posição no instante do golpe
+  I.golpeArea = function (A, dano, status, fonte) { let n = 0; for (const Q of I.alvos()) { if (Q.dead || Math.hypot(Q.pos.x - A.x, Q.pos.z - A.z) > A.r) continue; ferirAlvo(Q, dano, status, fonte, 0); n++; } return n; };
   const golpear = (e, P) => { if (P.remoto) OV.coop.golpeRemoto(P, e); else OV.combate.receberGolpe(e); };
   function escolherAlvo(e, alvos) {
     if (alvos.length === 1) return alvos[0];
@@ -405,7 +408,7 @@
       if (!c.caiu && c.t < 0.6) { c.caiu = true; queda(c); }
       if (c.t > 0) continue;
       I.impactoVisual(c.x, c.z, c.cor); fx({ k: 'impacto', x: c.x, z: c.z, cor: c.cor });
-      for (const P of alvos) if (!P.dead && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6) ferirAlvo(P, c.dano, c.status, c.fonte, 0);
+      for (const P of alvos) if (!P.dead && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) <= 1.5) ferirAlvo(P, c.dano, c.status, c.fonte, 0);
       I.chuvas.splice(i, 1);
     }
   }
@@ -418,7 +421,12 @@
       o.scale.setScalar(0.3);
       if (ps.tipo === 'onda') { o.position.set(0, e.def.height * 0.75, 0.4); e.g.add(o); } else { o.position.set(0, -0.85, 0.15); e.armR.add(o); }
       e.orbe = o;
-    } else if (ps.tipo === 'forte') marca(e.g.position.x, e.g.position.z, e.def.range + (ps.area || 1.2), e.def.windup * ps.wu, 0xff3a1a);
+    } else if (ps.tipo === 'forte') {
+      // o círculo desenhado é o golpe: guarda o centro e o raio para o impacto usar exatamente os mesmos
+      const r = e.def.range + (ps.area || 1.2);
+      e.areaAtaque = { x: e.g.position.x, z: e.g.position.z, y: e.g.position.y, r };
+      marca(e.areaAtaque.x, e.areaAtaque.z, r, e.def.windup * ps.wu, 0xff3a1a);
+    }
     else if (ps.tipo === 'investida') {
       const len = 8, a = e.g.rotation.y, x = e.g.position.x + Math.sin(a) * len / 2, z = e.g.position.z + Math.cos(a) * len / 2;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, len), new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }));
@@ -427,6 +435,7 @@
       fx({ k: 'investida', x, z, a, len, dur: e.def.windup * ps.wu });
     } else if (ps.tipo === 'chuva') chuva(e, ps, P);
   }
+  I._preparar = preparar; // (para os testes)
   function soltarOrbe(e) { if (e.orbe) { if (e.orbe.parent) e.orbe.parent.remove(e.orbe); e.orbe.geometry.dispose(); e.orbe = null; } }
   I.limparAtaques = function () { I.limparProjeteis(); I.ondas.forEach(o => M.scene.remove(o.m)); I.ondas.length = 0; I.chuvas.length = 0; };
 
@@ -497,6 +506,19 @@
     }
   });
 
+  /* v21: a agressividade decide até onde o vício persegue. Fora de combate ele fica na área dele; em combate,
+     o limite da área não vale, e ele só desiste quando o jogador se afasta além do limite. Ao voltar, mantém a vida
+     e só se cura devagar, depois de 30 s sem lutar. Na masmorra, persegue até a saída, que é uma barreira para ele. */
+  const BAIXA = new Set(['larva', 'gargula']);
+  const LIMITE_PERSEGUE = { baixa: 15, media: 30, alta: 60 };
+  function agressividade(e) {
+    const d = e.def;
+    if (d.agressao) return d.agressao;
+    if (BAIXA.has(d.key)) return 'baixa';
+    if (d.chefe || CHEFES.has(d.key) || d.chefeMenor || d.variante === 'elite' || e.chefeMasmorra || (d.aggro || 0) >= 30) return 'alta';
+    return 'media';
+  }
+  I.agressividade = agressividade;
   I.update = function (dt) {
     const P0 = OV.P, P = P0, alvos = I.alvos();
     if (I._pp && dt > 0) { P.vel = P.vel || { x: 0, z: 0 }; P.vel.x = (P.pos.x - I._pp.x) / dt; P.vel.z = (P.pos.z - I._pp.z) / dt; if (Math.hypot(P.vel.x, P.vel.z) > 20) P.vel.x = P.vel.z = 0; }
@@ -559,19 +581,28 @@
       const playerGone = P.dead || (P.oculto > 0 && !isca);
       const casa = Math.hypot(g.position.x - e.home.x, g.position.z - e.home.z);
       const pacifico = def.animal && !e.provocado && OV.P.pers && OV.P.pers.ordem === 'franciscano';
-      if (e.state === 'idle') { if (!pacifico && !e.parado && !playerGone && d < (def.aggro || 18) * ousadia && Math.abs(P.pos.y - g.position.y) < 6 && (d < 5 || !M.paredeEntre(g.position.x, g.position.z, P.pos.x, P.pos.z))) e.state = 'chase'; }
+      const ag = e.agress || (e.agress = agressividade(e));
+      e.semLuta = (e.semLuta || 0) + dt;
+      if (e.state !== 'idle' && e.state !== 'voltar') e.semLuta = 0;
+      else if (e.semLuta > 30 && e.hp < def.hp && e.hp > 0) e.hp = Math.min(def.hp, e.hp + def.hp * 0.02 * dt); // cura devagar, só depois de 30 s em paz
+      if (e.state === 'idle') { if (!pacifico && !e.parado && !playerGone && (ag !== 'baixa' || e.provocado) && d < (def.aggro || 18) * ousadia && Math.abs(P.pos.y - g.position.y) < 6 && (d < 5 || !M.paredeEntre(g.position.x, g.position.z, P.pos.x, P.pos.z))) e.state = 'chase'; }
       else if (e.state === 'voltar') {
         const a = Math.atan2(e.home.x - g.position.x, e.home.z - g.position.z);
         g.rotation.y = turnTo(g.rotation.y, a, 6 * dt);
         g.position.x += Math.sin(g.rotation.y) * def.speed * dt; g.position.z += Math.cos(g.rotation.y) * def.speed * dt;
-        // só se cura enquanto anda de verdade para casa; preso (num muro, numa árvore), fica onde está e para de se curar
-        if (e.voltarMelhor === undefined || casa < e.voltarMelhor - 0.05) { e.voltarMelhor = casa; e.voltarPreso = 0; e.hp = Math.min(def.hp, e.hp + def.hp * 0.25 * dt); }
+        // volta com a vida que tinha (não se cura no caminho); preso num muro ou numa árvore, fica onde está
+        if (e.voltarMelhor === undefined || casa < e.voltarMelhor - 0.05) { e.voltarMelhor = casa; e.voltarPreso = 0; }
         else e.voltarPreso = (e.voltarPreso || 0) + dt;
         if (casa < 1.5 || e.voltarPreso > 1.2) { if (casa >= 1.5) e.home = { x: g.position.x, z: g.position.z }; e.state = 'idle'; e.voltarMelhor = undefined; e.voltarPreso = 0; }
       }
       else if (e.state === 'chase') {
-        if (casa > (def.leash || 32) * (alvos.length > 1 ? 2.2 : 1)) e.state = 'voltar'; // com dois jogadores, o vício persegue bem mais longe antes de desistir
-        else if (playerGone) e.state = 'idle';
+        // desiste? Quem acabou de levar um golpe não desiste; na masmorra, só quando o jogador sai pela porta
+        const mult = alvos.length > 1 ? 1.3 : 1, acabouDeApanhar = (e.apanhouT || 0) > 0;
+        let desiste = false;
+        if (e.masmorra && OV.aventura && OV.aventura.dentroMasmorra) desiste = !OV.aventura.dentroMasmorra(e.masmorra, P.pos.x, P.pos.z, 0.5);
+        else if (!acabouDeApanhar) desiste = ag === 'alta' ? (longe > LIMITE_PERSEGUE.alta * mult || casa > 140) : longe > LIMITE_PERSEGUE[ag] * mult;
+        if (desiste) e.state = 'voltar';
+        else if (playerGone) e.state = casa > 6 ? 'voltar' : 'idle';
         else {
           g.rotation.y = turnTo(g.rotation.y, ang, 6 * dt);
           const ps = def.speed > 0 && def.dmg > 0 ? proximoPasso(e) : PASSOS.g; e.golpe = ps;
@@ -607,9 +638,15 @@
             if (inReach && !isca && !playerGone && !M.paredeEntre(g.position.x, g.position.z, P.pos.x, P.pos.z)) { e.multDano = ps.dmg; golpear(e, P); e.multDano = 1; }
             else if (inReach && isca) OV.combate.faisca(isca.x, M.altura(isca.x, isca.z) + 1.2, isca.z, 0xd8c0ff);
           } else if (ps.tipo === 'forte') {
-            const R = def.range + (ps.area || 1.2);
-            anelChao(g.position.x, g.position.z, 0.5, R + 0.4, 0.45, 0xff6a2a); OV.jogo.shake(0.4); if (OV.audio) OV.audio.heavy();
-            if (!isca && !playerGone && d < R + 0.4 + def.r && Math.abs(P.pos.y - g.position.y) < 2.5 && !M.paredeEntre(g.position.x, g.position.z, P.pos.x, P.pos.z)) { e.multDano = ps.dmg; golpear(e, P); e.multDano = 1; }
+            const A = e.areaAtaque || { x: g.position.x, z: g.position.z, y: g.position.y, r: def.range + (ps.area || 1.2) }; e.areaAtaque = null;
+            anelChao(A.x, A.z, 0.5, A.r, 0.45, 0xff6a2a); OV.jogo.shake(0.4); if (OV.audio) OV.audio.heavy();
+            // a posição de cada um é conferida agora, no instante do golpe, contra o mesmo raio do círculo
+            if (!isca) for (const Q of alvos) {
+              if (Q.dead || Q.dormindo) continue;
+              if (Math.hypot(Q.pos.x - A.x, Q.pos.z - A.z) > A.r || Math.abs(Q.pos.y - A.y) > 2.5) continue;
+              if (M.paredeEntre(A.x, A.z, Q.pos.x, Q.pos.z)) continue;
+              e.multDano = ps.dmg; golpear(e, Q); e.multDano = 1;
+            }
           } else if (ps.tipo === 'investida') {
             e.state = 'investida'; e.t = ps.dur || 0.5; e.acertou = false; e.ps = ps;
           } else if (ps.tipo === 'tiro') disparar(e, ps, P);
@@ -641,6 +678,8 @@
       if (def.ia) def.ia(e, dt);
       g.position.y = M.altura(g.position.x, g.position.z) + (def.y0 || 0) + (def.fixo ? 0 : def.voa ? 0.35 + (e.asas ? mar.bob : Math.sin(e.ph * 2) * 0.12) : mar.bob);
       M.collide(g.position, def.r);
+      if (e.masmorra && OV.aventura && OV.aventura.prenderNaMasmorra) OV.aventura.prenderNaMasmorra(e.masmorra, g.position);
+      if (e.apanhouT > 0) e.apanhouT -= dt;
     });
     // separação entre vícios e empurrão no jogador
     const a = I.vivos();

@@ -189,12 +189,27 @@
     if (h && h.orb) h.orb.getWorldPosition(o); else o.set(P.pos.x, P.pos.y + 1.4, P.pos.z);
     return o;
   };
+  /* a mira dos projéteis (v21): o tiro leva em conta a diferença de altura entre quem atira e o alvo.
+     Com a trava, vai direto ao centro do corpo do vício; sem trava, mantém a direção do herói e acerta
+     a altura do vício que estiver bem à frente; sem ninguém à frente, segue a inclinação da câmera. */
+  C.centroDe = e => new THREE.Vector3(e.g.position.x, e.g.position.y + e.def.height * 0.5 * (e.escala || 1), e.g.position.z);
+  C.direcaoTiro = function (o, ang, alcance, travado) {
+    const hx = Math.sin(ang), hz = Math.cos(ang);
+    if (travado && travado.state !== 'dead' && travado.state !== 'liberto') { const c = C.centroDe(travado); return new THREE.Vector3(c.x - o.x, c.y - o.y, c.z - o.z).normalize(); }
+    let t = null, bs = 1e9;
+    for (const e of vivos()) {
+      const dx = e.g.position.x - o.x, dz = e.g.position.z - o.z, d = Math.hypot(dx, dz);
+      if (d < 0.4 || d > (alcance || 14) + 2) continue;
+      const a = Math.abs(angWrap(Math.atan2(dx, dz) - ang)); if (a > 0.35) continue;
+      const sc = d * (1 + a * 3); if (sc < bs) { bs = sc; t = e; }
+    }
+    if (t) { const c = C.centroDe(t), dh = Math.hypot(c.x - o.x, c.z - o.z) || 0.01; return new THREE.Vector3(hx, clamp((c.y - o.y) / dh, -1.5, 1.5), hz).normalize(); }
+    const pitch = OV.cam ? OV.cam.pitch : 0.32, inc = clamp(-(pitch - 0.32) * 0.9, -0.5, 0.45);
+    return new THREE.Vector3(hx, Math.tan(inc), hz).normalize();
+  };
   function lancarProjetil(pesado, desvio) {
     const W = P.arma, o = C.origemMao();
-    let dir;
-    if (P.mira && P.mira.state !== 'dead') {
-      const t = P.mira.g.position; dir = new THREE.Vector3(t.x - o.x, (t.y + 1.2) - o.y, t.z - o.z).normalize();
-    } else dir = new THREE.Vector3(Math.sin(P.facing), 0, Math.cos(P.facing));
+    const dir = C.direcaoTiro(o, P.facing, W.alcance || 14, P.mira);
     if (desvio) dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), desvio);
     const Hb = HB();
     C.lancar({ origem: o, dir, pesado, dano: Math.round(P.D.dano * (pesado ? 1.8 : 1)), cor: W.cor, brilho: W.brilho, flecha: W.flecha,
@@ -207,7 +222,9 @@
       for (const e of vivos()) {
         if (p.atingidos.has(e)) continue;
         const dx = e.g.position.x - p.mesh.position.x, dz = e.g.position.z - p.mesh.position.z;
-        if (Math.hypot(dx, dz) < e.def.r + p.raio && p.mesh.position.y < e.g.position.y + e.def.height + 0.3) { hit = e; break; }
+        // o corpo inteiro do vício conta, dos pés à cabeça (com a sua escala)
+        const py = p.mesh.position.y, base = e.g.position.y, alto = e.def.height * (e.escala || 1);
+        if (Math.hypot(dx, dz) < e.def.r + p.raio && py > base - 0.35 && py < base + alto + 0.35) { hit = e; break; }
       }
       let bloqueio = false;
       const solo = M.altura(p.mesh.position.x, p.mesh.position.z);
@@ -238,6 +255,7 @@
     }
     M.burstLight.intensity = Math.max(0, M.burstLight.intensity - dt * 8);
   }
+  C._projs = projs; // (para os testes)
   C.anel = anel; C.faisca = faisca;
   C.efeito = function (meshes, dur, upd) { meshes.forEach(m => M.scene.add(m)); efeitos.push({ meshes, t: 0, dur, upd }); if (meshes.length) avisarFx({ k: 'ef', meshes, dur }); };
   C.limparEfeitos = function () {
@@ -255,7 +273,8 @@
     if (e.marca > 0) d = Math.round(d * (1 + (e.marcaF || 0.15)));
     if (e.def.quebra && e.def.quebra()) d = Math.max(d, e.hp);
     if (e.def.reduz) d = Math.max(1, Math.round(d * e.def.reduz(e)));
-    e.hp -= d; e.flash = 0.12; e.provocado = true;
+    e.hp -= d; e.flash = 0.12; e.provocado = true; e.semLuta = 0; e.apanhouT = 4;
+    if ((e.state === 'idle' || e.state === 'voltar') && !e.def.fixo && !e.parado && e.hp > 0) { e.state = 'chase'; e.voltarMelhor = undefined; } // quem é ferido de longe vem atrás
     e.vel.x += Math.sin(ang) * knock * e.def.knock; e.vel.z += Math.cos(ang) * knock * e.def.knock;
     const firme = (OV.inimigos.CHEFES && OV.inimigos.CHEFES.has(e.def.key)) || e.def.chefe || e.def.chefeMenor || e.def.variante === 'elite';
     if (opts && opts.pesado && !firme && Math.random() < 0.25) OV.inimigos.atordoar(e, 0.9);

@@ -480,7 +480,9 @@
     const cs = Math.cos(rot), sn = Math.sin(rot);
     const W = (lx, lz) => ({ x: x + lx * cs + lz * sn, z: z - lx * sn + lz * cs });
     cfg.W = W; cfg.y0 = y0;
-    const HW = 13, HD = 27, T = 1;
+    // v21: as masmorras ficaram bem mais amplas (38 x 72 m, três salas de 24 m)
+    const HW = 19, HD = 36, T = 1, ZS = 12;
+    cfg.HW = HW; cfg.HD = HD; cfg.ZS = ZS;
     if (M.patamar) M.patamar(x, z, rot, HW + 2, HD + 2, y0);
     const g = grupo(x, z, rot, y0);
     const parede = E.parede(), coluna = E.col(), r = OV.cenario ? OV.cenario.sorte('mas-' + cfg.id) : Math.random;
@@ -498,19 +500,20 @@
         const w = W(cx, cz); M.caixa(w.x, w.z, (horiz ? Math.abs(dx) : T) / 2 + 0.05, (horiz ? T : Math.abs(dz)) / 2 + 0.05, rot);
       }
     };
-    muro(-HW, -HD, HW, -HD); muro(-HW, -HD, -HW, HD); muro(HW, -HD, HW, HD); muro(-HW, HD, HW, HD, 2.4);
+    muro(-HW, -HD, HW, -HD); muro(-HW, -HD, -HW, HD); muro(HW, -HD, HW, HD); muro(-HW, HD, HW, HD, 3.2);
     // paredes internas (com o vão da grade)
-    muro(-HW, 9, HW, 9, 2.4); muro(-HW, -9, HW, -9, 2.4);
-    // colunas partidas, entulho, braseiros
-    const salas = [{ z0: 9, z1: HD }, { z0: -9, z1: 9 }, { z0: -HD, z1: -9 }];
+    muro(-HW, ZS, HW, ZS, 3.2); muro(-HW, -ZS, HW, -ZS, 3.2);
+    // colunas partidas, entulho, braseiros (as colunas ficam junto das paredes: o meio da sala é para lutar)
+    const salas = [{ z0: ZS, z1: HD }, { z0: -ZS, z1: ZS }, { z0: -HD, z1: -ZS }];
+    const CX = HW - 5;
     salas.forEach((s, i) => {
-      [-1, 1].forEach(sx => [s.z0 + 4, s.z1 - 4].forEach(lz => {
+      [-1, 1].forEach(sx => [s.z0 + 5, s.z1 - 5].forEach(lz => {
         const h = 2 + r() * 3;
-        if (E.estatuas && i === 2) { B(g, 1.1, 0.5, 1.1, sx * 8, 0.25, lz, coluna); g.add(mesh(new THREE.CylinderGeometry(0.35, 0.45, 2.2, 8), parede, sx * 8, 1.6, lz)); g.add(mesh(new THREE.SphereGeometry(0.3, 8, 6), parede, sx * 8, 2.95, lz)); }
-        else g.add(mesh(new THREE.CylinderGeometry(0.42, 0.5, h, 8), coluna, sx * 8, h / 2, lz));
-        const w = W(sx * 8, lz); M.obstacles.push({ x: w.x, z: w.z, r: 0.6 });
+        if (E.estatuas && i === 2) { B(g, 1.1, 0.5, 1.1, sx * CX, 0.25, lz, coluna); g.add(mesh(new THREE.CylinderGeometry(0.35, 0.45, 2.2, 8), parede, sx * CX, 1.6, lz)); g.add(mesh(new THREE.SphereGeometry(0.3, 8, 6), parede, sx * CX, 2.95, lz)); }
+        else g.add(mesh(new THREE.CylinderGeometry(0.42, 0.5, h, 8), coluna, sx * CX, h / 2, lz));
+        const w = W(sx * CX, lz); M.obstacles.push({ x: w.x, z: w.z, r: 0.6 });
       }));
-      for (let k = 0; k < 4; k++) { const p = mesh(new THREE.DodecahedronGeometry(0.3 + r() * 0.45, 0), MAT.rock, (r() - 0.5) * 20, 0.2, s.z0 + 1 + r() * (s.z1 - s.z0 - 2)); p.rotation.set(r() * 3, r() * 3, 0); g.add(p); }
+      for (let k = 0; k < 5; k++) { const p = mesh(new THREE.DodecahedronGeometry(0.3 + r() * 0.45, 0), MAT.rock, (r() - 0.5) * (HW * 2 - 6), 0.2, s.z0 + 1 + r() * (s.z1 - s.z0 - 2)); p.rotation.set(r() * 3, r() * 3, 0); g.add(p); }
       // braseiros nos cantos de cada sala
       [-1, 1].forEach(sx => {
         const lz = (s.z0 + s.z1) / 2, lx = sx * (HW - 1.4);
@@ -527,28 +530,29 @@
     { const w = W(0, -HD + 2.4); M.caixa(w.x, w.z, 2.1, 0.85, rot); }
     // a sala do guardião é mais alta e solene: paredes que sobem, um arco imenso atrás do altar e dois colossos
     { const AH = E.alt[1] + 3.4;
+      const LG = HD - ZS, ZC = -(HD + ZS) / 2, CLX = HW - 3, CLZ = -HD + 2.7;
       [-1, 1].forEach(sx => {
-        B(g, T + 0.16, AH, 18, sx * HW, AH / 2, -18, parede);
-        const cl = new THREE.Group(); cl.position.set(sx * 10.2, 0, -24.3); g.add(cl);
-        B(cl, 2.2, 1.4, 2.2, 0, 0.7, 0, coluna); g.add(mesh(new THREE.ConeGeometry(1.0, 5.6, 8), parede, sx * 10.2, 4.2, -24.3));
-        g.add(mesh(new THREE.SphereGeometry(0.55, 8, 6), parede, sx * 10.2, 7.3, -24.3)); B(cl, 1.8, 0.4, 0.8, 0, 6.2, 0.2, MAT.gold);
-        const w = W(sx * 10.2, -24.3); M.obstacles.push({ x: w.x, z: w.z, r: 1.3 });
+        B(g, T + 0.16, AH, LG, sx * HW, AH / 2, ZC, parede);
+        const cl = new THREE.Group(); cl.position.set(sx * CLX, 0, CLZ); g.add(cl);
+        B(cl, 2.2, 1.4, 2.2, 0, 0.7, 0, coluna); g.add(mesh(new THREE.ConeGeometry(1.0, 5.6, 8), parede, sx * CLX, 4.2, CLZ));
+        g.add(mesh(new THREE.SphereGeometry(0.55, 8, 6), parede, sx * CLX, 7.3, CLZ)); B(cl, 1.8, 0.4, 0.8, 0, 6.2, 0.2, MAT.gold);
+        const w = W(sx * CLX, CLZ); M.obstacles.push({ x: w.x, z: w.z, r: 1.3 });
       });
       B(g, HW * 2, 1.2, 1.2, 0, AH - 0.6, -HD + 0.4, parede);
       const arco = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.45, 6, 18, Math.PI), coluna); arco.position.set(0, 3.0, -HD + 0.7); g.add(arco);
       [-1, 1].forEach(sx => B(g, 0.9, 3.0, 0.9, sx * 4.2, 1.5, -HD + 0.7, coluna));
       const sol = new THREE.Mesh(new THREE.CircleGeometry(1.6, 18), MAT.gold); sol.position.set(0, 4.6, -HD + 0.62); g.add(sol); }
     // o pórtico de entrada
-    [-1, 1].forEach(sx => { B(g, 1.4, 6.2, 1.4, sx * 3.1, 3.1, HD, coluna); const w = W(sx * 3.1, HD); M.caixa(w.x, w.z, 0.75, 0.75, rot); });
-    B(g, 7.8, 1.1, 1.6, 0, 6.6, HD, coluna);
+    [-1, 1].forEach(sx => { B(g, 1.4, 6.2, 1.4, sx * 4.0, 3.1, HD, coluna); const w = W(sx * 4.0, HD); M.caixa(w.x, w.z, 0.75, 0.75, rot); });
+    B(g, 9.6, 1.1, 1.6, 0, 6.6, HD, coluna);
     if (cfg.teto) { const tt = new THREE.Mesh(new THREE.PlaneGeometry(HW * 2 + 4, HD * 2 + 4), sm(0x1a1612, { side: THREE.DoubleSide, roughness: 1 })); tt.rotation.x = Math.PI / 2; tt.position.y = cfg.teto; g.add(tt); }
     fundir(g);
     // as grades
-    cfg.grades = [9, -9].map(lz => {
+    cfg.grades = [ZS, -ZS].map(lz => {
       const gr = new THREE.Group(); gr.position.set(0, 0, lz); g.add(gr);
-      for (let i = -5; i <= 5; i++) gr.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.6, 5), MAT.iron, i * 0.42, 1.8, 0));
-      [0.5, 1.8, 3.2].forEach(h => gr.add(mesh(new THREE.BoxGeometry(4.6, 0.08, 0.08), MAT.iron, 0, h, 0)));
-      const w = W(0, lz); const cx = M.caixa(w.x, w.z, 2.45, 0.5, rot);
+      for (let i = -7; i <= 7; i++) gr.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.6, 5), MAT.iron, i * 0.42, 1.8, 0));
+      [0.5, 1.8, 3.2].forEach(h => gr.add(mesh(new THREE.BoxGeometry(6.2, 0.08, 0.08), MAT.iron, 0, h, 0)));
+      const w = W(0, lz); const cx = M.caixa(w.x, w.z, 3.25, 0.5, rot);
       return { gr, cx, abrindo: 0, aberta: false };
     });
     // o baú do tesouro, atrás do guardião
@@ -556,7 +560,7 @@
     AV.bau({ id: 'mas_' + cfg.id, x: bw.x, z: bw.z, rot, rico: true, regiao: cfg.regiao, conteudo: cfg.tesouro, cond: () => !!F()['mas_' + cfg.id + '_fim'] });
     // nome no mapa e faixa ao entrar
     M.LOCAIS['mas_' + cfg.id] = { nome: cfg.nome, x: W(0, 0).x, z: W(0, 0).z, oy: -30 };
-    M.zonasExtra.push(['mas_' + cfg.id, W(0, 0).x, W(0, 0).z, 28]);
+    M.zonasExtra.push(['mas_' + cfg.id, W(0, 0).x, W(0, 0).z, HD + 2]);
     if (A.LUGAR) A.LUGAR['mas_' + cfg.id] = cfg.tema || 'cripta';
     cfg.salas = salas.map((s, i) => Object.assign(s, cfg.salasDef[i]));
     masmorras.push(cfg);
@@ -569,15 +573,15 @@
   function dentroSala(cfg, i) {
     const dx = P.pos.x - cfg.x, dz = P.pos.z - cfg.z, cs = Math.cos(cfg.rot || 0), sn = Math.sin(cfg.rot || 0);
     const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs, s = cfg.salas[i];
-    return Math.abs(lx) < 12.5 && lz > s.z0 + 0.5 && lz < s.z1 - 0.5;
+    return Math.abs(lx) < cfg.HW - 0.5 && lz > s.z0 + 0.5 && lz < s.z1 - 0.5;
   }
   function spawnSala(cfg, i) {
     const s = cfg.salas[i], tag = tagSala(cfg, i); MS.tagRemove(tag);
     const lista = s.inimigos || [];
     lista.forEach(([t, nv, vr], k) => {
-      const lx = ((k % 3) - 1) * 5 + (Math.random() - 0.5) * 2, lz = s.z0 + 3 + Math.floor(k / 3) * 5 + Math.random() * 2;
+      const lx = ((k % 3) - 1) * 7 + (Math.random() - 0.5) * 2, lz = s.z0 + 4 + Math.floor(k / 3) * 6 + Math.random() * 2;
       const w = cfg.W(lx, Math.min(s.z1 - 2, lz)); const e = I.spawn(t, false, w, { nivel: nv, variante: vr || null }); e.tag = tag; e.mundo = false; if (e.def.liberta) e.sumir = true;
-      e.def = Object.assign({}, e.def, { leash: 60 });
+      e.masmorra = cfg; // persegue até a saída da masmorra, que é uma barreira para ele
     });
   }
   function aplicarMasmorras() {
@@ -609,11 +613,11 @@
       // o guardião
       if (!AV.masmorraFeita(cfg.id) && salaLivre(cfg, 1) && !cfg.chefeVivo && dentroSala(cfg, 2) && !(OV.cenas && OV.cenas.ativa) && !D.aberto) {
         cfg.chefeVivo = true;
-        const s = cfg.salasDef[2], w = cfg.W(0, -18), tag = tagSala(cfg, 2); MS.tagRemove(tag);
-        const b = I.spawn(s.chefe[0], false, w, { nivel: s.chefe[1], variante: s.chefe[2] || null }); b.tag = tag; b.mundo = false; b.chefeMasmorra = cfg.id;
-        b.def = Object.assign({}, b.def, { leash: 70 }); b.g.rotation.y = Math.atan2(P.pos.x - w.x, P.pos.z - w.z);
-        (s.inimigos || []).forEach(([t, nv, vr], k) => { const ww = cfg.W((k % 2 ? 1 : -1) * 6, -14); const e = I.spawn(t, true, ww, { nivel: nv, variante: vr || null }); e.tag = tag; e.mundo = false; });
-        if (OV.cenas) OV.cenas.poema(s.chefe[0], { e: b, raio: 6.5, altura: 2.6 }, () => ui.toast(`${b.def.name}!`));
+        const s = cfg.salasDef[2], w = cfg.W(0, -(cfg.HD + cfg.ZS) / 2 - 2), tag = tagSala(cfg, 2); MS.tagRemove(tag);
+        const b = I.spawn(s.chefe[0], false, w, { nivel: s.chefe[1], variante: s.chefe[2] || null }); b.tag = tag; b.mundo = false; b.chefeMasmorra = cfg.id; b.masmorra = cfg;
+        b.g.rotation.y = Math.atan2(P.pos.x - w.x, P.pos.z - w.z);
+        (s.inimigos || []).forEach(([t, nv, vr], k) => { const ww = cfg.W((k % 2 ? 1 : -1) * 8, -cfg.ZS - 6); const e = I.spawn(t, true, ww, { nivel: nv, variante: vr || null }); e.tag = tag; e.mundo = false; e.masmorra = cfg; });
+        if (OV.cenas) OV.cenas.poema(s.chefe[0], { e: b, raio: 7.5, altura: 2.8 }, () => ui.toast(`${b.def.name}!`));
       }
       if (cfg.chefeVivo && !AV.masmorraFeita(cfg.id)) {
         const b = I.porTag(tagSala(cfg, 2)).find(e => e.chefeMasmorra === cfg.id);
@@ -626,6 +630,21 @@
     });
   }
   AV.masmorras = masmorras;
+  // um ponto está dentro da masmorra? (coordenadas locais; margem negativa = mais para dentro)
+  AV.dentroMasmorra = function (cfg, x, z, margem) {
+    const dx = x - cfg.x, dz = z - cfg.z, cs = Math.cos(cfg.rot || 0), sn = Math.sin(cfg.rot || 0);
+    const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs, m = margem || 0;
+    return Math.abs(lx) < cfg.HW + m && lz > -cfg.HD - m && lz < cfg.HD + m;
+  };
+  // o vício da masmorra não passa da porta: a saída é uma barreira para ele
+  AV.prenderNaMasmorra = function (cfg, p) {
+    const dx = p.x - cfg.x, dz = p.z - cfg.z, cs = Math.cos(cfg.rot || 0), sn = Math.sin(cfg.rot || 0);
+    let lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+    const lim = cfg.HW - 1, limz = cfg.HD - 1.2;
+    if (Math.abs(lx) <= lim && Math.abs(lz) <= limz) return;
+    lx = Math.max(-lim, Math.min(lim, lx)); lz = Math.max(-limz, Math.min(limz, lz));
+    p.x = cfg.x + lx * cs + lz * sn; p.z = cfg.z - lx * sn + lz * cs;
+  };
 
   /* ================= MISSÕES COM PERSONAGENS =================
      q: { id, ato, nome, npc, receptor, etapas, alvos, xp, den, itens, convite, aceitar, aceito, lembrete, pronto, agradece,

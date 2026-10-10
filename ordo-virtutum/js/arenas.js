@@ -103,15 +103,16 @@
   /* ================= O PALÁCIO DOS BAILES (Belmonte) ================= */
   (function () {
     const R = OV.regioes && OV.regioes.corte; if (!R || !R.PALACIO) return;
-    const pal = R.PALACIO, h = 11, w = 26, d = 34;
+    const pal = R.PALACIO, h = 11, w = pal.w || 26, d = pal.d || 34, kx = w / 26, X0 = w / 2 - 2, Z0 = d / 2 - 2;
     // dentro: piso xadrez, tapete vermelho, arcos dourados entre as colunas, cortinas, um lustre imenso e estátuas mascaradas
     const dent = new THREE.Group(); pal.g.add(dent);
-    for (let i = 0; i < 12; i++) for (let k = 0; k < 16; k++) if ((i + k) % 2) B(dent, 2, 0.02, 2, -11 + i * 2, 0.215, -15 + k * 2, mat(0x3a3438));
-    B(dent, 3.2, 0.03, 30, 0, 0.235, 0.5, VELUDO); B(dent, 0.18, 0.035, 30, -1.7, 0.24, 0.5, OURO); B(dent, 0.18, 0.035, 30, 1.7, 0.24, 0.5, OURO);
+    const XADREZ = mat(0x3a3438);
+    for (let i = 0; i <= X0; i++) for (let k = 0; k <= Z0; k++) if ((i + k) % 2) B(dent, 2, 0.02, 2, -X0 + i * 2, 0.215, -Z0 + k * 2, XADREZ);
+    B(dent, 3.2, 0.03, d - 4, 0, 0.235, 0.5, VELUDO); B(dent, 0.18, 0.035, d - 4, -1.7, 0.24, 0.5, OURO); B(dent, 0.18, 0.035, d - 4, 1.7, 0.24, 0.5, OURO);
     for (let k = 0; k < 4; k++) [-1, 1].forEach(s => {
-      const lz = -12 + k * 6 + 3;
-      B(dent, 0.5, 0.6, 5.2, s * 9, h - 1.6, lz, OURO);
-      const arco = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.22, 6, 16, PI), OURO); arco.position.set(s * 9, h - 4.4, lz); arco.rotation.y = PI / 2; dent.add(arco);
+      const lz = -12 + k * 8, cx = s * 13; // entre as colunas (x = ±13, a cada 8 m)
+      B(dent, 0.5, 0.6, 7.2, cx, h - 1.6, lz, OURO);
+      const arco = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.22, 6, 16, PI), OURO); arco.position.set(cx, h - 5.4, lz); arco.rotation.y = PI / 2; dent.add(arco);
       B(dent, 0.12, h - 1.2, 3.6, s * (w / 2 - 0.55), h / 2, lz, VELUDO);
       B(dent, 0.14, 0.5, 3.8, s * (w / 2 - 0.55), h - 0.8, lz, OURO);
     });
@@ -120,7 +121,7 @@
     B(lu, 0.06, 2.6, 0.06, 0, 1.3, 0, OURO);
     { const q = pal.W(0, -3); M.emissor(q.x, M.altura(q.x, q.z) + h - 2.8, q.z, 1.6, 22, 0xffd8a0); }
     [-1, 1].forEach(s => {
-      const st = new THREE.Group(); st.position.set(s * 6.4, 0.2, -14.5); dent.add(st);
+      const st = new THREE.Group(); st.position.set(s * 8, 0.2, -d / 2 + 2.5); dent.add(st);
       B(st, 1.4, 1.2, 1.4, 0, 0.6, 0, MARMORE_E); Co(st, 0.8, 3.2, 0, 2.8, 0, MARMORE, 8); const cb = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), MARMORE); cb.position.y = 4.65; st.add(cb);
       B(st, 0.55, 0.3, 0.12, 0, 4.7, 0.38, OURO);
     });
@@ -128,13 +129,13 @@
     // fora: um pórtico de colunas com frontão e uma escadaria larga
     const fr = new THREE.Group(); pal.g.add(fr);
     const zf = d / 2 + 2.2, HC = 9;
-    [-10.6, -7.6, -4.6, 4.6, 7.6, 10.6].forEach(x => { coluna(fr, x, zf, HC, 0.55, MARMORE, MARMORE_E); const q = pal.W(x, zf); M.obstacles.push({ x: q.x, z: q.z, r: 0.75 }); });
-    B(fr, 24, 1.1, 2.4, 0, HC + 0.55, zf, MARMORE_E); B(fr, 24.6, 0.25, 2.6, 0, HC + 1.2, zf, OURO);
-    const sh = new THREE.Shape(); sh.moveTo(-12.4, 0); sh.lineTo(12.4, 0); sh.lineTo(0, 3.6); sh.closePath();
+    [-10.6, -7.6, -4.6, 4.6, 7.6, 10.6].map(x => x * kx).forEach(x => { coluna(fr, x, zf, HC, 0.55, MARMORE, MARMORE_E); const q = pal.W(x, zf); M.obstacles.push({ x: q.x, z: q.z, r: 0.75 }); });
+    B(fr, 24 * kx, 1.1, 2.4, 0, HC + 0.55, zf, MARMORE_E); B(fr, 24.6 * kx, 0.25, 2.6, 0, HC + 1.2, zf, OURO);
+    const sh = new THREE.Shape(); sh.moveTo(-12.4 * kx, 0); sh.lineTo(12.4 * kx, 0); sh.lineTo(0, 3.6); sh.closePath();
     const fg = new THREE.ExtrudeGeometry(sh, { depth: 2.2, bevelEnabled: false }); fg.translate(0, 0, -1.1);
     const fp = new THREE.Mesh(fg, MARMORE); fp.position.set(0, HC + 1.3, zf); fr.add(fp);
     const ms = new THREE.Mesh(new THREE.CircleGeometry(0.9, 16), OURO); ms.position.set(0, HC + 2.4, zf + 1.12); fr.add(ms);
-    [0, 1, 2].forEach(k => B(fr, 26 - k * 2, 0.16, 1.4, 0, 0.08 + k * 0.16, zf + 3.6 - k * 1.2, MARMORE_E));
+    [0, 1, 2].forEach(k => B(fr, 26 * kx - k * 2, 0.16, 1.4, 0, 0.08 + k * 0.16, zf + 3.6 - k * 1.2, MARMORE_E));
     [-1, 1].forEach(s => { B(fr, 1.6, 7, 0.1, s * 6.1, 5.4, zf + 0.62, VELUDO); B(fr, 1.6, 0.3, 0.12, s * 6.1, 8.9, zf + 0.64, OURO); });
     C.fundir(fr);
     // o pórtico some junto com o telhado quando se entra (para não tapar a câmera)
@@ -145,11 +146,11 @@
   /* ================= A CÂMARA DO MEIO-DIA (Cripta) ================= */
   (function () {
     const CR = OV.cripta; if (!CR) return;
-    const X = 300, CZ = -38, RR = 14, y0 = CR.altura(X, CZ), teto = CR.teto(X, CZ);
+    const X = 300, CZ = CR.CZ || -38, RR = CR.R || 14, k = RR / 14, y0 = CR.altura(X, CZ), teto = CR.teto(X, CZ);
     const g = grupo(0, 0, 0, 0), HT = teto - y0;
     const PEDRA_C = mat(0x6a6058), SOL = mat(0xe8b84a, { metalness: 0.6, roughness: 0.35, emissive: 0x3a2400 });
-    for (let i = 0; i < 10; i++) {
-      const a = i / 10 * PI * 2; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.35) continue; // a entrada
+    for (let i = 0; i < 14; i++) {
+      const a = i / 14 * PI * 2; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.3) continue; // a entrada
       const x = X + Math.sin(a) * (RR - 2.2), z = CZ + Math.cos(a) * (RR - 2.2);
       const p = new THREE.Group(); p.position.set(x, y0, z); g.add(p);
       coluna(p, 0, 0, HT, 0.5, PEDRA_C, PEDRA_E);
@@ -162,7 +163,7 @@
     const sz = CZ - RR + 0.6;
     const d1 = Cl(g, 2.6, 2.6, 0.25, X, y0 + 6, sz, SOL, 24); d1.rotation.x = PI / 2;
     for (let i = 0; i < 12; i++) { const a = i / 12 * PI * 2; const r1 = Co(g, 0.35, 1.6, X + Math.cos(a) * 3.4, y0 + 6 + Math.sin(a) * 3.4, sz + 0.05, SOL, 4); r1.rotation.z = a - PI / 2; }
-    [[-7, -4], [7, -4], [-8.5, 3], [8.5, 3]].forEach(([dx, dz]) => { const x = X + dx, z = CZ + dz; B(g, 2.4, 0.9, 1.2, x, y0 + 0.45, z, PEDRA_E, 0, Math.atan2(dx, dz), 0); B(g, 2.2, 0.25, 1.0, x, y0 + 1.0, z, PEDRA_C, 0, Math.atan2(dx, dz), 0); M.obstacles.push({ x, z, r: 1.1 }); });
+    [[-7, -4], [7, -4], [-8.5, 3], [8.5, 3]].forEach(([dx0, dz0]) => { const dx = dx0 * k, dz = dz0 * k, x = X + dx, z = CZ + dz; B(g, 2.4, 0.9, 1.2, x, y0 + 0.45, z, PEDRA_E, 0, Math.atan2(dx, dz), 0); B(g, 2.2, 0.25, 1.0, x, y0 + 1.0, z, PEDRA_C, 0, Math.atan2(dx, dz), 0); M.obstacles.push({ x, z, r: 1.1 }); });
     C.fundir(g);
   })();
 })(window.OV);
@@ -230,10 +231,11 @@
   /* ---- o Palácio dos Bailes: espelhos altos de moldura dourada pelas paredes, e mais dois lustres ---- */
   (function () {
     const R = OV.regioes && OV.regioes.corte; if (!R || !R.PALACIO) return;
-    const pal = R.PALACIO, h = 11, g = new THREE.Group(); pal.g.add(g);
+    const pal = R.PALACIO, h = 11, w = pal.w || 26, g = new THREE.Group(); pal.g.add(g);
     const ESPELHO = mat(0xbcc8d8, { metalness: 0.95, roughness: 0.08 });
-    for (let k = 0; k < 4; k++) [-1, 1].forEach(s => { const lz = -12 + k * 6; B(g, 0.1, 6.4, 2.4, s * 12.35, 3.8, lz, ESPELHO); B(g, 0.16, 6.9, 0.18, s * 12.3, 3.8, lz - 1.25, OURO); B(g, 0.16, 6.9, 0.18, s * 12.3, 3.8, lz + 1.25, OURO); B(g, 0.16, 0.25, 2.7, s * 12.3, 7.3, lz, OURO); });
-    [-12, 7].forEach(lz => {
+    const XE = w / 2 - 0.65, XM = w / 2 - 0.7;
+    for (let k = 0; k < 5; k++) [-1, 1].forEach(s => { const lz = -16 + k * 8; B(g, 0.1, 6.4, 2.4, s * XE, 3.8, lz, ESPELHO); B(g, 0.16, 6.9, 0.18, s * XM, 3.8, lz - 1.25, OURO); B(g, 0.16, 6.9, 0.18, s * XM, 3.8, lz + 1.25, OURO); B(g, 0.16, 0.25, 2.7, s * XM, 7.3, lz, OURO); });
+    [-15, 9].forEach(lz => {
       const lu = new THREE.Group(); lu.position.set(0, h - 2.4, lz); g.add(lu);
       [1.8, 1.1].forEach((r, i) => { const a = new THREE.Mesh(new THREE.TorusGeometry(r, 0.08, 6, 24), OURO); a.rotation.x = PI / 2; a.position.y = -i * 0.6; lu.add(a); for (let j = 0; j < 8; j++) { const t = j / 8 * PI * 2; Cl(lu, 0.05, 0.05, 0.22, Math.cos(t) * r, -i * 0.6 + 0.14, Math.sin(t) * r, MARMORE, 6); } });
       B(lu, 0.05, 2.4, 0.05, 0, 1.2, 0, OURO);
@@ -245,12 +247,12 @@
   /* ---- a Câmara do Meio-Dia: um sol maior, quatro braseiros de chama roxa e um estrado de pedra ---- */
   (function () {
     const CR = OV.cripta; if (!CR) return;
-    const X = 300, CZ = -38, RR = 14, y0 = CR.altura(X, CZ), g = grupo(0, 0, 0, 0);
+    const X = 300, CZ = CR.CZ || -38, RR = CR.R || 14, k = RR / 14, y0 = CR.altura(X, CZ), g = grupo(0, 0, 0, 0);
     const SOL = mat(0xe8b84a, { metalness: 0.6, roughness: 0.35, emissive: 0x3a2400 }), sz = CZ - RR + 0.4;
     const anel = new THREE.Mesh(new THREE.TorusGeometry(4.4, 0.35, 8, 32), SOL); anel.position.set(X, y0 + 6, sz); g.add(anel);
     for (let i = 0; i < 16; i++) { const a = i / 16 * PI * 2; const r1 = Co(g, 0.3, 1.8, X + Math.cos(a) * 5.6, y0 + 6 + Math.sin(a) * 5.6, sz, SOL, 4); r1.rotation.z = a - PI / 2; }
     [[6, 6.2], [5, 6.6], [4, 7.0]].forEach(([w, z], k) => B(g, w * 2, 0.3, 1.6, X, y0 + 0.15 + k * 0.3, CZ - RR + z, PEDRA));
     C.fundir(g);
-    [[-6, -9], [6, -9], [-9, 2], [9, 2]].forEach(([dx, dz]) => braseiro(g, X + dx, CZ + dz, y0, 3.2, 0xc87aff, 0xb070ff));
+    [[-6, -9], [6, -9], [-9, 2], [9, 2]].forEach(([dx, dz]) => braseiro(g, X + dx * k, CZ + dz * k, y0, 3.2, 0xc87aff, 0xb070ff));
   })();
 })(window.OV);

@@ -16,7 +16,7 @@
   M.spawnsMundo.push(...R.spawnsMundo);
 
   /* ================= MISSÕES DO ATO IV ================= */
-  const BAILE = [[-5, -8], [5, -8], [-6, 2], [6, 2], [-3, 9], [3, 9]];
+  const BAILE = [[-7, -10], [7, -10], [-8, 3], [8, 3], [-4, 12], [4, 12]];
   const livres = () => (F().mascarados || []).length;
   Object.assign(MS.MIS, {
     a4m1: { ato: 4, nome: 'O Convite', tipo: 'p', xp: 120, etapas: ['Siga para a Corte das Máscaras pela placa de uma das estradas.', 'Procure Frei Bernardo, dentro da Igreja de Santo Agostinho, a oeste da praça.', 'Acenda a vela do Oratório de Belmonte, na Praça das Fontes.'] },
@@ -231,7 +231,7 @@
   /* ================= ASMODEU ================= */
   const chefe = { ativo: false, fase: 0, fasT: 0, tele: 0, saltoT: 0, falando: false, b: null, anel: null, guardou: 0 };
   A4.chefe = chefe;
-  const ESPELHOS = [[-5.5, -10], [5.5, -10], [-5.5, 8], [5.5, 8]];
+  const ESPELHOS = [[-7.5, -12], [7.5, -12], [-7.5, 10], [7.5, 10]];
   function limparEfeitos() { if (chefe.anel) { M.scene.remove(chefe.anel); chefe.anel = null; } }
   function resetarChefe() {
     ['asmodeu', 'espelho_baile', 'asmodeu_add'].forEach(MS.tagRemove);
@@ -281,7 +281,7 @@
     const max = e.def.hp;
     if (chefe.fase === 1 && e.hp < max * 0.6) {
       chefe.fase = 2;
-      [[-7, 10], [7, 10], [0, -14]].forEach(([x, z], i) => { const a = I.spawn(i === 2 ? 'mascarado' : 'reflexo', true, W(R.ARENA.x + x, R.ARENA.z + z), { nivel: 15 }); a.tag = 'asmodeu_add'; a.def = Object.assign({}, a.def, { aggro: 30, leash: 40 }); });
+      [[-9, 12], [9, 12], [0, -13]].forEach(([x, z], i) => { const a = I.spawn(i === 2 ? 'mascarado' : 'reflexo', true, W(R.ARENA.x + x, R.ARENA.z + z), { nivel: 15 }); a.tag = 'asmodeu_add'; a.def = Object.assign({}, a.def, { aggro: 30, leash: 40 }); });
       ui.toast('"Dancem, meus convidados!" Asmodeu chama os seus reflexos.'); A.bell(247, 0.25); J().shake(0.3);
     }
     if (chefe.fase === 2 && e.hp < max * 0.3) { chefe.fase = 3; oferta(e); }

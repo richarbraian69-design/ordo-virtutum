@@ -293,14 +293,14 @@
         { t: 'Selar a cripta com ele dentro.', ef: () => { F().abade_selado = true; }, ir: 'd' }] },
       c: { quem: 'Abade Anselmo', txt: 'Não desista de mim...', depois: () => {
         prova = true; ui.toast('Resista! O demônio luta pela última vez.'); OV.jogo.shake(0.4);
-        for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; const s = I.spawn('diabrete', true, { x: CR.X + Math.cos(a) * 6, z: -38 + Math.sin(a) * 6 }); s.tag = 'prova'; }
+        for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; const s = I.spawn('diabrete', true, { x: CR.X + Math.cos(a) * 8, z: (CR.CZ || -38) + Math.sin(a) * 8 }); s.tag = 'prova'; }
       } },
       d: { quem: 'Abade Anselmo', txt: 'Então... me deixe aqui. Talvez eu mereça.', depois: () => { e.sumir = true; resolverChefe(); } }
     } });
   }
   function resolverChefe() {
     F().chefe_resolvido = true; CR.fecharPortao(false);
-    const X = CR.X, cz = -38;
+    const X = CR.X, cz = CR.CZ || -38;
     const mat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const asas = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 3.2), mat); m.position.set(X + s * 3.6, -2, cz); m.rotation.z = s * 0.35; return m; });
     OV.combate.efeito(asas, 3.2, p => { mat.opacity = p < 0.3 ? p / 0.3 * 0.8 : 0.8 * (1 - (p - 0.3) / 0.7); asas.forEach((m, i) => { m.position.y = -2 + p * 3; m.rotation.z = (i ? 1 : -1) * (0.35 - p * 0.5); }); });
@@ -570,7 +570,7 @@
       if (P.pos.z < -24.5 && !CR.iniciado && !F().chefe_resolvido && MS.ativa('m5') && MS.etapa('m5') === 1) {
         MS.avancar('m5', 2); CR.iniciado = true;
         const anjo = () => D.falas([['Anjo da Guarda', 'É ele: o demônio do meio-dia. Não pare, não desista. Quando precisar rezar, faça-o dentro da luz.']], () => { CR.iniciado = false; CR.iniciarChefe(); });
-        if (OV.cenas) OV.cenas.poema('meiodia', { pos: { x: 300, z: -44 }, raio: 6.5, altura: 2 }, anjo); else anjo();
+        if (OV.cenas) OV.cenas.poema('meiodia', { pos: { x: 300, z: (CR.CZ || -38) - 6 }, raio: 7.5, altura: 2.2 }, anjo); else anjo();
       }
     } else CR.update(dt);
   };

@@ -16,7 +16,7 @@
   const { turnTo, lerp } = OV.util;
   const $ = id => document.getElementById(id);
   const esc = s => ui.esc(String(s));
-  const VERSAO = '20';
+  const VERSAO = '21';
   const MULT = 2.5;
 
   const CO = { papel: null, codigo: null, ficha: null, ws: null, conectado: false, colegaOn: false, colegaNome: '', seq: 0, atkSeq: 0, mundoHost: null, espelho: false };
