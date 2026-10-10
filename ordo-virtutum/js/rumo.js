@@ -323,7 +323,10 @@
     for (let d = 0; d < 360; d += 15) {
       const a = d * Math.PI / 180, dd = wrap(a - olhar); if (Math.abs(dd) > FOV / 2) continue;
       const x = xDe(a), forte = d % 45 === 0, alfa = 1 - Math.abs(dd) / (FOV / 2) * 0.7;
-      g.strokeStyle = `rgba(58,40,20,${(forte ? 0.75 : 0.4) * alfa})`; g.lineWidth = forte ? 1.4 : 1;
+      // sem o pergaminho de fundo: traços claros com contorno escuro, legíveis sobre qualquer cena
+      g.lineCap = 'round';
+      g.strokeStyle = `rgba(10,6,4,${0.6 * alfa})`; g.lineWidth = forte ? 3.2 : 2.6; g.beginPath(); g.moveTo(x, H - 2); g.lineTo(x, H - (forte ? 8 : 5)); g.stroke();
+      g.strokeStyle = `rgba(244,230,192,${(forte ? 0.95 : 0.6) * alfa})`; g.lineWidth = forte ? 1.4 : 1;
       g.beginPath(); g.moveTo(x, H - 2); g.lineTo(x, H - (forte ? 8 : 5)); g.stroke();
     }
     g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -331,8 +334,9 @@
       const a = d * Math.PI / 180, dd = wrap(a - olhar); if (Math.abs(dd) > FOV / 2) return;
       const x = xDe(a), alfa = 1 - Math.abs(dd) / (FOV / 2) * 0.75;
       g.globalAlpha = alfa;
-      if (t === 'N') { g.font = '600 21px "Grenze Gotisch", "UnifrakturMaguntia", Georgia, serif'; g.fillStyle = '#9e1d13'; }
-      else { g.font = `${t.length > 1 ? 13 : 16}px "IM Fell English SC", Georgia, serif`; g.fillStyle = '#3a2814'; }
+      if (t === 'N') { g.font = '600 21px "Grenze Gotisch", "UnifrakturMaguntia", Georgia, serif'; g.fillStyle = '#ff6a50'; }
+      else { g.font = `${t.length > 1 ? 13 : 16}px "IM Fell English SC", Georgia, serif`; g.fillStyle = '#f4e6c0'; }
+      g.lineJoin = 'round'; g.strokeStyle = 'rgba(10,6,4,.85)'; g.lineWidth = 3.5; g.strokeText(t, x, 14);
       g.fillText(t, x, 14);
       g.globalAlpha = 1;
     });
@@ -347,13 +351,14 @@
       MP.losango(g, x, 15, sel ? 7 : 4.5, cor, false);
       if (sel) {
         const dist = Math.hypot(a.x - P.pos.x, a.z - P.pos.z);
-        g.font = '12px "IM Fell English SC", Georgia, serif'; g.fillStyle = '#3a2814';
-        if (Math.abs(dd) > FOV / 2) { g.fillText(dd > 0 ? '»' : '«', x - Math.sign(dd) * 14, 15); }
-        else if (dist > 6) g.fillText(`${Math.round(dist)} passos`, Math.max(40, Math.min(W - 40, x)), 32);
+        g.font = '12px "IM Fell English SC", Georgia, serif'; g.fillStyle = '#f4e6c0'; g.lineJoin = 'round'; g.strokeStyle = 'rgba(10,6,4,.85)'; g.lineWidth = 3;
+        const esc = (s, xx, yy) => { g.strokeText(s, xx, yy); g.fillText(s, xx, yy); };
+        if (Math.abs(dd) > FOV / 2) { esc(dd > 0 ? '»' : '«', x - Math.sign(dd) * 14, 15); }
+        else if (dist > 6) esc(`${Math.round(dist)} passos`, Math.max(40, Math.min(W - 40, x)), 32);
       }
     });
     // o marcador do centro
-    g.fillStyle = '#9e1d13'; g.beginPath(); g.moveTo(meio, H - 9); g.lineTo(meio - 5, H - 1); g.lineTo(meio + 5, H - 1); g.closePath(); g.fill();
+    g.fillStyle = '#ff6a50'; g.strokeStyle = 'rgba(10,6,4,.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(meio, H - 9); g.lineTo(meio - 5, H - 1); g.lineTo(meio + 5, H - 1); g.closePath(); g.stroke(); g.fill();
   }
   R.rumoTexto = function (x, z) {
     const d = Math.hypot(x - P.pos.x, z - P.pos.z);

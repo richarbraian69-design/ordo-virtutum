@@ -356,10 +356,10 @@
         { t: 'O que aconteceu com o povo?', ir: 'c' }, { t: 'Onde está o Abade?', ir: 'd' }, { t: 'Diga-me o que fazer.', ir: 'e' }] },
       c: { quem: 'Padre Tomé', txt: 'Perderam a vontade de tudo. Ninguém planta, ninguém mói, ninguém reza. Os antigos chamavam isso de acídia, o demônio do meio-dia.', opc: [{ t: 'Onde está o Abade?', ir: 'd' }, { t: 'Diga-me o que fazer.', ir: 'e' }] },
       d: { quem: 'Padre Tomé', txt: 'Ninguém sabe. Os aldeões dizem que ouvem gemidos vindos do claustro à noite.', opc: [{ t: 'O que aconteceu com o povo?', ir: 'c' }, { t: 'Diga-me o que fazer.', ir: 'e' }] },
-      e: { quem: 'Padre Tomé', txt: () => `Acenda a vela do Oratório aqui na praça: a luz de um Oratório guarda quem reza. Depois suba ao mosteiro, ao norte. Que Santa Sabina acompanhe você, ${g('filho', 'filha')}.`,
-        ef: () => { MS.avancar('m1', 1); if (prog().oratorios.vila) { MS.concluir('m1'); MS.iniciar('m2'); } } }
+      e: { quem: 'Padre Tomé', txt: () => `Acenda a vela do Oratório aqui na praça: a luz de um Oratório guarda quem reza. Depois vá à portaria do mosteiro, na estrada de pedras ao norte: o Irmão Porteiro mandou pedir socorro. Que Santa Sabina acompanhe você, ${g('filho', 'filha')}.`,
+        ef: () => { MS.avancar('m1', 1); if (prog().oratorios.vila) { MS.concluir('m1'); if (MS.irParaPortaria) MS.irParaPortaria(); else MS.iniciar('m2'); } } }
     } };
-    if (MS.ativa('m1')) return linha('Padre Tomé', 'Acenda a vela do Oratório da praça, e depois suba ao mosteiro.');
+    if (MS.ativa('m1')) return linha('Padre Tomé', 'Acenda a vela do Oratório da praça, e depois vá à portaria do mosteiro, na estrada de pedras.');
     if (MS.ativa('m2')) return linha('Padre Tomé', 'O mosteiro fica ao norte, depois da estrada de pedras. Cuidado com o que ronda o claustro.');
     if (MS.ativa('m3') && !f.tome_m3) return { inicio: 'a', nos: {
       a: { quem: 'Padre Tomé', txt: 'Você libertou o claustro! Mas os sinos continuam mudos: alguém arrancou os três badalos.', prox: 'b' },
@@ -483,7 +483,7 @@
       ]), 1800); }
     }
     else if (tipo === 'oratorio') {
-      if (x === 'vila' && MS.ativa('m1') && MS.etapa('m1') === 1) { MS.concluir('m1'); setTimeout(() => MS.iniciar('m2'), 1500); }
+      if (x === 'vila' && MS.ativa('m1') && MS.etapa('m1') === 1) { MS.concluir('m1'); setTimeout(() => { if (MS.irParaPortaria) MS.irParaPortaria(); else MS.iniciar('m2'); }, 1500); }
     }
     else if (tipo === 'zona') {
       if (x === 'claustro' && MS.ativa('m2') && MS.etapa('m2') === 0) {

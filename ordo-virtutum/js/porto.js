@@ -372,6 +372,7 @@
     const dummy = new THREE.Object3D();
     const livre = (lx, lz, m) => {
       if (Math.abs(lx) > 92 || lz < -96 || lz > costa(lx) - 6) return false;
+      if (M.reservado && M.reservado(X(lx), Z(lz), m)) return false;
       if (distEstrada(lx, lz) < 3.5 + m) return false;
       for (const p of PLANOS) if (Math.hypot(lx - p.x, lz - p.z) < p.r * 0.8 + m) return false;
       for (const [x, z, w, d] of PT.RECTS) if (Math.abs(lx - x) < w / 2 + 2 + m && Math.abs(lz - z) < d / 2 + 2 + m) return false;

@@ -144,14 +144,25 @@
     return g;
   }
   M.criarFigura = figura;
+  const interiorDe = (x, z) => (M.interiores || []).find(c => { const dx = x - c.x, dz = z - c.z, lx = dx * c.cs - dz * c.sn, lz = dx * c.sn + dz * c.cs; return Math.abs(lx) < c.hw && Math.abs(lz) < c.hd; }) || null;
+  M.interiorDe = interiorDe;
   // quem tem destino caminha até ele, contornando paredes
   M.animados.push(dt => {
     if (!OV.jogo || !OV.jogo.ativo || !OV.jogo.ativo()) return;
     const P = OV.P; if (!P || !P.pos) return;
     for (const id in M.figuras) {
       const f = M.figuras[id], d = f.destino; if (!d) continue;
-      const dx = d.x - f.x, dz = d.z - f.z, dist = Math.hypot(dx, dz);
+      // quem está dentro de uma casa e vai para fora sai pela porta (primeiro até a soleira, depois para fora)
+      if (!d.via && d.via !== false) {
+        const cf = interiorDe(f.x, f.z), cd = interiorDe(d.x, d.z);
+        d.via = cf && cf !== cd ? [cf.W(0, cf.hd - 0.5), cf.porta] : false; d.casa = cf || null;
+      }
+      const alvoP = d.via && d.via.length ? d.via[0] : d;
+      const dx = alvoP.x - f.x, dz = alvoP.z - f.z, dist = Math.hypot(dx, dz);
+      if (alvoP !== d && dist < 0.5) { d.via.shift(); d.preso = 0; continue; }
       if (dist < 0.25) { f.destino = null; f.mover(d.x, d.z, d.rot); continue; }
+      // preso dentro de casa por mais de 3 s: reaparece do lado de fora da porta
+      if (d.casa && d.preso > 3 && interiorDe(f.x, f.z) === d.casa) { const pt = d.casa.porta; f.mover(pt.x, pt.z, f.rot); d.via = false; d.preso = 0; continue; }
       if (Math.hypot(P.pos.x - f.x, P.pos.z - f.z) > 90 && Math.hypot(P.pos.x - d.x, P.pos.z - d.z) > 90) { f.destino = null; f.mover(d.x, d.z, d.rot); continue; }
       const passo = Math.min(dist, 1.35 * dt), alvo = Math.atan2(dx, dz);
       const tenta = a => { const q = { x: f.x + Math.sin(a) * passo, z: f.z + Math.cos(a) * passo }; const r0 = f.obst.r; f.obst.r = 0; M.collide(q, 0.35); f.obst.r = r0; return q; };

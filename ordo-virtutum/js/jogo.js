@@ -39,18 +39,18 @@
     if (lockFailed || locked) return;
     try {
       const r = canvas.requestPointerLock();
-      if (r && r.catch) r.catch(() => { lockFailed = true; ui.toast('Arraste com o mouse para girar a câmera.'); });
+      if (r && r.catch) r.catch(() => { lockFailed = true; });
     } catch (e) { lockFailed = true; }
   }
   function soltar() { if (document.pointerLockElement) document.exitPointerLock(); }
   document.addEventListener('pointerlockchange', () => {
-    locked = document.pointerLockElement === canvas;
+    locked = document.pointerLockElement === canvas; if (locked) lockFailed = false;
     // o mouse chegou preso no meio de uma fala ou cena (pedido que demorou): solta de novo, sem pausar
     if (locked && (J.dialogo || (OV.cenas && OV.cenas.ativa))) { soltar(); return; }
     const podePausar = () => !J.semPausaAuto && !locked && J.modo === 'jogo' && !J.pausado && !J.ficha && !J.mapa && !J.dialogo && !J.diarioAb && !J.inv && !P.dead && !ui.ovAberto() && !(OV.cenas && OV.cenas.ativa);
     if (podePausar()) setTimeout(() => { if (podePausar()) J.pausar(); }, 180);
   });
-  document.addEventListener('pointerlockerror', () => { lockFailed = true; ui.toast('Arraste com o mouse para girar a câmera.'); });
+  document.addEventListener('pointerlockerror', () => { lockFailed = true; });
 
   /* ---- progresso ---- */
   function normalizarProg(p) {
@@ -103,15 +103,15 @@
     C.resetAcoes(); C.limparEfeitos();
     C.definirPersonagem(pers); OV.itens.preparar(); C.recalcular(); C.restaurar();
     posicionarInicio();
-    I.limpar(); spawnHistoria(); spawnMundo();
+    I.limpar(); spawnHistoria(); horaAnt = null; spawnMundo(true);
     P.morteUsada = false;
     MS().init();
     ui.identidade(pers); ui.montarSlots(); ui.mostrarHud(true); ui.montarHabs(); ui.fecharOv();
     J.modo = 'jogo'; J.pausado = false; J.ficha = false; J.mapa = false; P.heroi.g.visible = true;
     limparTeclas(); tryLock();
     ui.aplicarOpcoes();
-    if (novo) { ui.toast('Você desce ao Vale de Santa Sabina.'); setTimeout(() => ui.toast('Esc abre o menu. Em Tutoriais estão todos os controles.'), 4200); }
-    else ui.toast(`Bem-vindo de volta, ${pers.nome}.`);
+    if (novo) { setTimeout(() => ui.toast('Você desce ao Vale de Santa Sabina.'), 900); setTimeout(() => ui.toast('Esc abre o menu. Em Tutoriais estão todos os controles.'), 6500); }
+    else setTimeout(() => ui.toast(`Bem-vindo de volta, ${pers.nome}.`), 600);
     MS().evento('inicio');
   };
   function posicionarEm(o) {
@@ -130,7 +130,30 @@
     if (!der.includes('preguica')) I.spawn('preguica');
     if (der.includes('ira') && der.includes('preguica') && !J.prog.soberba) I.spawn('soberba', false);
   }
-  function spawnMundo() { I.removerMundo(); M.spawnsMundo.forEach(([t, x, z, nivel, variante]) => { const e = I.spawn(t, false, { x, z }, { nivel, variante, mundo: true }); e.mundo = true; }); }
+  /* os vícios do mundo vencidos só voltam depois do amanhecer seguinte, e nunca à vista de quem joga */
+  const mortosMundo = () => (J.prog.mortosMundo = J.prog.mortosMundo || {});
+  J.dia = () => (J.prog && J.prog.diaMundo) || 0;
+  const longeDeTodos = (x, z, r) => I.alvos().every(a => Math.hypot(a.pos.x - x, a.pos.z - z) > r);
+  function spawnMundo(inicio) {
+    if (inicio) I.removerMundo();
+    const vivos = new Set(I.lista.filter(e => e.mundo && !e.removed && e.state !== 'dead' && e.state !== 'liberto').map(e => e.mundoIdx));
+    const mortos = mortosMundo();
+    M.spawnsMundo.forEach(([t, x, z, nivel, variante], i) => {
+      if (vivos.has(i)) return;
+      if (mortos[i] !== undefined && !(J.dia() > mortos[i])) return; // ainda não amanheceu desde que foi vencido
+      if (!inicio && !longeDeTodos(x, z, 60)) return;               // ninguém vê um vício surgir do nada
+      delete mortos[i];
+      const e = I.spawn(t, false, { x, z }, { nivel, variante, mundo: true }); e.mundo = true; e.mundoIdx = i;
+    });
+  }
+  let horaAnt = null, mundoT = 0;
+  function cuidarDoMundo(dt) {
+    if (OV.tempo) { const h = OV.tempo.hora; if (horaAnt !== null && ((horaAnt < 6 && h >= 6) || (h < horaAnt - 1 && h >= 6))) J.prog.diaMundo = J.dia() + 1; horaAnt = h; }
+    mundoT -= dt; if (mundoT > 0) return; mundoT = 2;
+    const mortos = mortosMundo();
+    I.lista.forEach(e => { if (e.mundo && e.mundoIdx !== undefined && !e.marcadoMorto && (e.state === 'dead' || e.state === 'liberto')) { e.marcadoMorto = true; mortos[e.mundoIdx] = J.dia(); } });
+    spawnMundo(false);
+  }
   function resetarHistoria() { I.lista.forEach(e => { if (!e.mundo && e.state !== 'dead' && e.spawnT <= 0) I.resetar(e); }); }
 
   /* ---- pausa, ficha, mapa, morte ---- */
@@ -160,14 +183,17 @@
   J.morreu = function () {
     setTimeout(() => { if (J.modo !== 'jogo' || !P.dead) return; soltar(); ui.morte(!!(J.prog.ultimo && J.prog.oratorios[J.prog.ultimo])); }, 1400);
   };
-  J.renascer = function () {
+  // parcial: no co-op, quando o colega continua lutando, a luta dele não recomeça
+  J.renascer = function (parcial) {
     J.mapa = false; MP.fechar(); J.ficha = false; ui.ficha(false);
     C.resetAcoes(); C.restaurar(); C.limparEfeitos(); posicionarInicio();
-    resetarHistoria(); spawnMundo(); P.morteUsada = false;
+    if (parcial !== true) resetarHistoria();
+    P.morteUsada = false;
     if (H) { H.limpar(false); H.trazerAliados(); }
-    MS().evento('renascer');
+    if (parcial !== true) MS().evento('renascer');
     ui.fecharOv(); J.pausado = false; tryLock();
   };
+  J.reiniciarLutas = function () { resetarHistoria(); MS().evento('renascer'); };
 
   /* ---- vícios vencidos ---- */
   J.salvar = function () { if (OV.tempo) J.prog.hora = Math.round(OV.tempo.hora * 100) / 100; if (OV.rumo && OV.rumo.salvarAgora && J.modo === 'jogo') OV.rumo.salvarAgora(); return S.gravar({ v: 2, pers: P.pers, prog: J.prog }); };
@@ -223,7 +249,7 @@
     const primeiraVez = !J.prog.oratorios[o.id];
     const primeiroDeTodos = !Object.keys(J.prog.oratorios).some(k => J.prog.oratorios[k]);
     J.prog.oratorios[o.id] = true; J.prog.ultimo = o.id; o.acender(true);
-    C.restaurar(); resetarHistoria(); spawnMundo(); MS().respawnQuest(); P.morteUsada = false;
+    C.restaurar(); resetarHistoria(); P.morteUsada = false; // rezar não faz os vícios vencidos voltarem
     const ok = J.salvar(); A.bell(392, 0.25);
     MS().evento('oratorio', o.id);
     if (!ok) ui.toast('Vida e Fé restauradas. Este navegador não permite guardar o progresso.');
@@ -255,8 +281,11 @@
     const nome = M.nomeZona(z); ui.local(M.interiorAtual && M.interiorAtual.nome ? M.interiorAtual.nome : nome);
     MS().evento('zona', z);
     if (z !== 'vale' && !J.prog.visitados.includes(z)) J.prog.visitados.push(z);
+    const agora = performance.now(), saidas = J.saidasZona || (J.saidasZona = {});
+    if (antes) saidas[antes] = agora;
     const grande = z !== 'vale' || antes === null;
-    if (grande && !(antes === 'claustro' && z === 'mosteiro') && !(antes === 'mosteiro' && z === 'claustro' && J.prog.visitados.length > 1)) ui.banner(nome);
+    const faz = saidas[z] === undefined || agora - saidas[z] > 5 * 60 * 1000;
+    if (grande && faz && !(antes === 'claustro' && z === 'mosteiro') && !(antes === 'mosteiro' && z === 'claustro' && J.prog.visitados.length > 1)) ui.banner(nome);
   }
 
   /* ---- cliques nas sobreposições ---- */
@@ -332,10 +361,14 @@
   canvas.addEventListener('mousedown', e => {
     if (!J.ativo()) return;
     if (locked) { if (e.button === 0) C.atacar(false); else if (e.button === 2) C.atacar(true); }
-    else if (!lockFailed) tryLock();
-    else { dragging = true; dragDist = 0; dragBtn = e.button; }
+    else {
+      // um clique na tela recaptura o mouse (depois do Esc o navegador às vezes recusa a primeira tentativa: tenta de novo a cada clique)
+      recaptura = !lockFailed; lockFailed = false; tryLock();
+      dragging = true; dragDist = 0; dragBtn = e.button;
+    }
   });
-  addEventListener('mouseup', () => { if (dragging) { dragging = false; if (dragDist < 6) C.atacar(dragBtn === 2); } });
+  let recaptura = false;
+  addEventListener('mouseup', () => { if (dragging) { dragging = false; if (dragDist < 6 && !recaptura && !locked) C.atacar(dragBtn === 2); recaptura = false; } });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   /* ---- câmera ---- */
@@ -364,9 +397,9 @@
       cam.yaw = turnTo(cam.yaw, want, 4 * dt);
       cam.pitch = lerp(cam.pitch, 0.25, 1 - Math.exp(-3 * dt));
     }
-    const dist = 6.2, cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    const dist = 6.6, cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw), off = 0.7;
-    camTarget.set(P.pos.x + rx * off, P.pos.y + 1.55 + (P.heroi ? P.heroi.body.position.y * 0.6 : 0), P.pos.z + rz * off);
+    camTarget.set(P.pos.x + rx * off, P.pos.y + 2.05 + (P.heroi ? P.heroi.body.position.y * 0.6 : 0), P.pos.z + rz * off); // o centro da câmera um pouco acima do herói: mais campo de visão
     camDesired.set(camTarget.x + Math.sin(cam.yaw) * cp * dist, camTarget.y + sp * dist + 0.3, camTarget.z + Math.cos(cam.yaw) * cp * dist);
     if (Math.abs(P.pos.x) < 16.4 && Math.abs(P.pos.z) < 16.4) {
       // dentro do claustro a câmera não atravessa as galerias: se for preciso, chega mais perto pelo mesmo ângulo
@@ -404,7 +437,7 @@
   }
 
   /* passo de simulação usado por testes automáticos */
-  J.passo = function (dt) { if (!J.ativo()) return; C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); };
+  J.passo = function (dt) { if (!J.ativo()) return; C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); cuidarDoMundo(dt); };
 
   /* ---- laço ---- */
   let last = performance.now();
@@ -414,7 +447,7 @@
     const vivo = J.ativo();
     let fx = 0, fz = 0;
     if (J.modo === 'jogo') {
-      if (vivo) { C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); }
+      if (vivo) { C.update(dt); I.update(dt); atualizarOndas(dt); atualizarZona(dt); MS().update(dt); if (OV.rumo) OV.rumo.update(dt); cuidarDoMundo(dt); }
       C.animarHeroi(vivo ? dt : 0);
       const it = vivo && !P.dead && P.oratT <= 0 ? M.interativoProximo(P.pos.x, P.pos.z) : null;
       ui.prompt(it ? `<kbd>E</kbd> ${ui.esc(it.texto())}` : null);

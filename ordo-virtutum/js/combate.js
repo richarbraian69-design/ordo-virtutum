@@ -134,25 +134,32 @@
 
   /* ---- efeitos visuais ---- */
   const efeitos = [], projs = [];
-  function anel(cor, escala, dur, op) {
+  // C.aoFx: o co-op escuta os efeitos do jogador local para mostrá-los também no navegador do colega
+  const avisarFx = m => { if (C.aoFx) try { C.aoFx(m); } catch (e) { /* o efeito local segue */ } };
+  function anel(cor, escala, dur, op, onde) {
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.0, 40), new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: op, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-    const y0 = P.pos.y;
-    ring.rotation.x = -Math.PI / 2; ring.position.set(P.pos.x, y0 + 0.1, P.pos.z); M.scene.add(ring);
+    const pp = onde || P.pos, y0 = pp.y;
+    if (!onde) avisarFx({ k: 'anel', cor, escala, dur, op });
+    ring.rotation.x = -Math.PI / 2; ring.position.set(pp.x, y0 + 0.1, pp.z); M.scene.add(ring);
     efeitos.push({ meshes: [ring], t: 0, dur, upd: (p) => { ring.scale.setScalar(1 + p * escala); ring.position.y = y0 + 0.1 + p * 1.6; ring.material.opacity = op * (1 - p); } });
   }
   function burst() {
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.05, 40), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.9, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-    ring.rotation.x = -Math.PI / 2; ring.position.set(P.pos.x, P.pos.y + 0.08, P.pos.z); M.scene.add(ring);
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 9, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-    col.position.set(P.pos.x, P.pos.y + 4.5, P.pos.z); M.scene.add(col);
-    efeitos.push({ meshes: [ring, col], t: 0, dur: 0.7, upd: p => { ring.scale.setScalar(1 + p * 6.5); ring.material.opacity = Math.max(0, 0.9 * (1 - p)); col.material.opacity = Math.max(0, 0.5 * (1 - p * 1.3)); col.scale.x = col.scale.z = 1 + p * 0.6; } });
-    M.burstLight.position.set(P.pos.x, P.pos.y + 2.5, P.pos.z); M.burstLight.intensity = 5;
+    burstVisual(P.pos); avisarFx({ k: 'burst' });
     A.bell(392, 0.28); OV.jogo.shake(0.15);
     vivos().forEach(e => {
       const d = distTo(e);
       if (d < 6.5 && !M.paredeEntre(P.pos.x, P.pos.z, e.g.position.x, e.g.position.z)) { const f = 1 - 0.5 * Math.max(0, d) / 6.5; C.danoInimigo(e, Math.round(P.D.miguel * f), 7 * f, angTo(e), { jogador: true }); }
     });
   }
+  function burstVisual(Q) { // a luz de São Miguel, onde quer que o orante esteja
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.05, 40), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.9, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(Q.x, Q.y + 0.08, Q.z); M.scene.add(ring);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 9, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    col.position.set(Q.x, Q.y + 4.5, Q.z); M.scene.add(col);
+    efeitos.push({ meshes: [ring, col], t: 0, dur: 0.7, upd: p => { ring.scale.setScalar(1 + p * 6.5); ring.material.opacity = Math.max(0, 0.9 * (1 - p)); col.material.opacity = Math.max(0, 0.5 * (1 - p * 1.3)); col.scale.x = col.scale.z = 1 + p * 0.6; } });
+    M.burstLight.position.set(Q.x, Q.y + 2.5, Q.z); M.burstLight.intensity = 5;
+  }
+  C.burstVisual = burstVisual;
   function faisca(x, y, z, cor) {
     const s = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), new THREE.MeshBasicMaterial({ color: cor || 0xffe2a0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
     s.position.set(x, y, z); M.scene.add(s);
@@ -161,6 +168,7 @@
   /* projéteis: a arma do jogador e as habilidades usam o mesmo lançador */
   C.lancar = function (o) {
     const W = P.arma || {};
+    if (!o.visual) avisarFx({ k: 'proj', o: [o.origem.x, o.origem.y, o.origem.z].map(v => Math.round(v * 100) / 100), d: [o.dir.x, o.dir.y, o.dir.z].map(v => Math.round(v * 1000) / 1000), p: o.pesado ? 1 : 0, cor: o.cor || 0, brilho: o.brilho || 0, fl: o.flecha ? 1 : 0, r: o.raio, v: o.vel, al: o.alcance || W.alcance || 14 });
     const r = o.raio !== undefined ? o.raio : (o.pesado ? 0.3 : 0.15);
     let core;
     if (o.flecha) {
@@ -174,7 +182,7 @@
     if (o.flecha) core.lookAt(o.origem.clone().add(o.dir));
     const speed = o.vel || (o.pesado ? 15 : 22);
     projs.push({ mesh: core, vel: o.dir.clone().normalize().multiplyScalar(speed), life: ((o.alcance || W.alcance || 14) + 2) / speed, raio: o.raioHit || (o.pesado ? 0.65 : 0.38),
-      dano: o.dano, pesado: !!o.pesado, perfura: o.perfura || 0, atingidos: new Set(), cor: o.brilho || 0xffe2a0, atordoa: o.atordoa || 0, explode: o.explode !== undefined ? o.explode : !!o.pesado });
+      dano: o.dano, pesado: !!o.pesado, perfura: o.perfura || 0, atingidos: new Set(), cor: o.brilho || 0xffe2a0, atordoa: o.atordoa || 0, explode: o.explode !== undefined ? o.explode : !!o.pesado, visual: !!o.visual });
   };
   C.origemMao = function () {
     const h = P.heroi; const o = new THREE.Vector3();
@@ -207,6 +215,7 @@
       if (p.mesh.position.y < solo) bloqueio = true;
       const q = { x: p.mesh.position.x, z: p.mesh.position.z }; M.collide(q, 0.05); if (Math.abs(q.x - p.mesh.position.x) + Math.abs(q.z - p.mesh.position.z) > 0.01 && !M.naPonte(p.mesh.position.x, p.mesh.position.z) && Math.abs(p.mesh.position.x - M.rioX(p.mesh.position.z)) > 3.4) bloqueio = true;
       const pos = p.mesh.position;
+      if (hit && p.visual) { faisca(pos.x, pos.y, pos.z, p.cor); M.scene.remove(p.mesh); projs.splice(i, 1); continue; } // o tiro do colega: só a imagem
       if (hit) {
         p.atingidos.add(hit);
         const ang = Math.atan2(hit.g.position.x - P.pos.x, hit.g.position.z - P.pos.z);
@@ -230,7 +239,7 @@
     M.burstLight.intensity = Math.max(0, M.burstLight.intensity - dt * 8);
   }
   C.anel = anel; C.faisca = faisca;
-  C.efeito = function (meshes, dur, upd) { meshes.forEach(m => M.scene.add(m)); efeitos.push({ meshes, t: 0, dur, upd }); };
+  C.efeito = function (meshes, dur, upd) { meshes.forEach(m => M.scene.add(m)); efeitos.push({ meshes, t: 0, dur, upd }); if (meshes.length) avisarFx({ k: 'ef', meshes, dur }); };
   C.limparEfeitos = function () {
     efeitos.forEach(f => f.meshes.forEach(m => M.scene.remove(m))); efeitos.length = 0;
     projs.forEach(p => M.scene.remove(p.mesh)); projs.length = 0; M.burstLight.intensity = 0;
@@ -248,7 +257,8 @@
     if (e.def.reduz) d = Math.max(1, Math.round(d * e.def.reduz(e)));
     e.hp -= d; e.flash = 0.12; e.provocado = true;
     e.vel.x += Math.sin(ang) * knock * e.def.knock; e.vel.z += Math.cos(ang) * knock * e.def.knock;
-    if (opts && opts.pesado) OV.inimigos.atordoar(e, e.def.key === 'soberba' ? 0.5 : 0.9);
+    const firme = (OV.inimigos.CHEFES && OV.inimigos.CHEFES.has(e.def.key)) || e.def.chefe || e.def.chefeMenor || e.def.variante === 'elite';
+    if (opts && opts.pesado && !firme && Math.random() < 0.25) OV.inimigos.atordoar(e, 0.9);
     else if (e.state === 'windup' && e.def.stagger) { e.state = 'recover'; e.t = 0.5; }
     OV.jogo.shake(0.12); A.hit();
     if (opts && opts.jogador && HB()) HB().aoAcertar(e, d, opts);
@@ -264,12 +274,13 @@
       if (OV.missoes) OV.missoes.evento('vencido', e);
     }
   };
+  C.aparouCerto = () => { P.cd.sinal = Math.min(P.cd.sinal || 0, OV.SINAL.recargaAcerto || 0.8); };
   C.receberGolpe = function (e) {
     if (P.dead) return;
     if (P.parryT > 0 && Math.abs(angWrap(angTo(e) - P.facing)) < 1.6) {
       OV.inimigos.atordoar(e, (e.def.key === 'soberba' ? 1.0 : 1.5) + (HB() && HB().tem('estabilidade') ? 1 : 0)); e.flash = 0.12;
       if (HB() && HB().tem('disputatio')) P.fe = Math.min(P.D.maxFe, P.fe + 10);
-      A.parry(); P.parryFlash = 0.45; OV.jogo.shake(0.15);
+      A.parry(); P.parryFlash = 0.45; OV.jogo.shake(0.15); C.aparouCerto();
       ui.toast('Sinal da Cruz! O vício cambaleia.');
       return;
     }
@@ -422,7 +433,10 @@
     if (OV.itens) speed *= OV.itens.mod('vel');
     if (OV.biblicas && OV.biblicas.velMontaria) speed *= OV.biblicas.velMontaria();
     if (P.status.gula) P.sta = Math.max(0, P.sta - 4 * dt);
-    P.correndo = !!((keys.ShiftLeft || keys.ShiftRight) || P.autoCorrer) && moving && !P.praying && P.atkT <= 0;
+    // correr gasta fôlego (3 por segundo); com o fôlego no fim, o peregrino volta a andar até recuperar um pouco
+    if (P.sta <= 0.5) P.semFolego = true; else if (P.semFolego && P.sta > 15) P.semFolego = false;
+    P.correndo = !!((keys.ShiftLeft || keys.ShiftRight) || P.autoCorrer) && moving && !P.praying && P.atkT <= 0 && !P.semFolego;
+    if (P.correndo) P.sta = Math.max(0, P.sta - 3 * dt);
     if (P.correndo) { speed *= 1.75; sprinting = true; }
     P.naAgua = M.naAgua ? M.naAgua(P.pos.x, P.pos.z) : false;
     if (P.naAgua) speed *= 0.62;
@@ -453,7 +467,7 @@
         }
       }
     }
-    if (P.atkT <= 0 && P.dodgeT <= 0 && !P.status.ira && !P.status.gula) P.sta = Math.min(P.D.maxSta, P.sta + P.D.staRegen * dt * (HB() ? HB().multSta() : 1));
+    if (P.atkT <= 0 && P.dodgeT <= 0 && !P.correndo && !P.status.ira && !P.status.gula) P.sta = Math.min(P.D.maxSta, P.sta + P.D.staRegen * dt * (HB() ? HB().multSta() : 1));
     M.collide(P.pos, 0.45);
     P.pos.y = M.altura(P.pos.x, P.pos.z);
   };

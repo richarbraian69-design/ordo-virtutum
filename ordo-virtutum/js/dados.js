@@ -190,10 +190,10 @@ window.OV = window.OV || {};
   };
 
   OV.ORACOES = [
-    { slot: 1, id: 'ave', nome: 'Ave-Maria', custo: 25, recarga: 6, descr: 'Cura a vida' },
-    { slot: 2, id: 'miguel', nome: 'São Miguel', custo: 30, recarga: 4, descr: 'Luz que fere de leve todos os vícios ao redor e os empurra' },
+    { slot: 1, id: 'ave', nome: 'Ave-Maria', custo: 25, recarga: 15, descr: 'Cura a vida' },
+    { slot: 2, id: 'miguel', nome: 'São Miguel', custo: 30, recarga: 10, descr: 'Luz que fere de leve todos os vícios ao redor e os empurra' },
     { slot: 3, id: null, nome: 'Pai-Nosso', bloq: 'Aprende-se com Padre Tomé, no vale' },
     { slot: 4, id: null, nome: 'Vazio', bloq: 'Novas orações se equipam nos Oratórios' }
   ];
-  OV.SINAL = { nome: 'Sinal da Cruz', custo: 10, recarga: 0.8, janela: 0.3 };
+  OV.SINAL = { nome: 'Sinal da Cruz', custo: 10, recarga: 2.0, recargaAcerto: 0.8, janela: 0.3 }; // a recarga cheia só pesa quando o aparar falha
 })(window.OV);

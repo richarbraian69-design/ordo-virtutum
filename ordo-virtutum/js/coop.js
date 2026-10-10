@@ -117,17 +117,19 @@
     if (ant) { R.vel.x = (m.x - ant.x) * 10; R.vel.z = (m.z - ant.z) * 10; if (Math.hypot(R.vel.x, R.vel.z) > 20) R.vel.x = R.vel.z = 0; }
     if (!R.visto || Math.hypot(m.x - R.pos.x, m.z - R.pos.z) > 10) { R.pos.set(m.x, m.y, m.z); if (R.heroi) R.heroi.g.position.copy(R.pos); }
     R.visto = performance.now();
+    const caiuAgora = !!m.dead && !R.dead;
     R.facingAlvo = m.f; R.correndo = !!m.cr; R.dead = !!m.dead; R.praying = !!m.pr; R.oratT = m.or ? 1 : 0; R.prayT = m.pr ? 2 : 0;
     if (m.ad !== R.ad) { R.ad = m.ad; R.atkDur = m.adur || 0.5; R.atkT = R.atkDur; R.atkPesado = !!m.ap; }
     R.dodgeT = m.dg ? Math.max(R.dodgeT, 0.25) : 0; R.castT = m.ck ? Math.max(R.castT, 0.4) : R.castT; R.castKind = m.ck || R.castKind; R.signT = m.sg ? Math.max(R.signT, 0.3) : R.signT;
     R.velaMao = !!m.vm; R.oculto = m.ocl ? 1 : 0;
+    if (CO.anfitriao() && caiuAgora && J.modo === 'jogo' && (P.dead || CO.separados)) setTimeout(() => { if (J.modo === 'jogo' && J.reiniciarLutas) J.reiniciarLutas(); }, 3200);
     R.ocupado = m.oc || null; R.nome = m.nome || CO.colegaNome; R.nivel = m.nivel || 1; R.hp = m.hp; R.mhp = m.mhp || 1;
     if (m.nome) CO.colegaNome = m.nome;
   }
   M.animados.push(dt => {
     if (!R.heroi) return;
     const vis = CO.ativo() && CO.colegaOn && J.modo === 'jogo' && R.visto && performance.now() - R.visto < 6000;
-    R.heroi.g.visible = !!vis; rotulo.hidden = !vis;
+    R.heroi.g.visible = !!vis; rotulo.hidden = !vis || !!motivoLocal() || P.dead;
     if (!vis) return;
     if (R.alvo) {
       const k = 1 - Math.exp(-12 * dt);
@@ -139,7 +141,7 @@
     // o nome do colega, flutuando sobre a cabeça
     const v = new THREE.Vector3(R.pos.x, R.pos.y + 2.55, R.pos.z).project(M.camera);
     const cv = M.renderer.domElement.getBoundingClientRect();
-    if (v.z > 1 || v.z < -1) { rotulo.hidden = true; return; }
+    if (v.z > 1 || v.z < -1 || rotulo.hidden) { rotulo.hidden = true; return; }
     rotulo.style.transform = `translate(${Math.round(cv.left + (v.x + 1) / 2 * cv.width)}px, ${Math.round(cv.top + (1 - v.y) / 2 * cv.height)}px) translate(-50%, -100%)`;
     const pct = Math.max(0, Math.min(100, Math.round(100 * (R.hp || 0) / (R.mhp || 1))));
     rotulo.innerHTML = `<b>${esc(R.nome)}</b> <small>nv ${R.nivel}</small><i><u style="width:${pct}%"></u></i>${R.dead ? '<em>caído</em>' : ''}`;
@@ -286,14 +288,57 @@
   const levar = motivo => CO.enviar({ t: 'teleporte', x: r2(P.pos.x), z: r2(P.pos.z), f: r2(P.facing), motivo });
   function andarJuntos(dt) {
     const agora = { x: P.pos.x, z: P.pos.z };
-    if (ultimaPos && Math.hypot(agora.x - ultimaPos.x, agora.z - ultimaPos.z) > 25) levar('salto');
+    if (CO.separados && R.alvo && Math.hypot(R.alvo.x - P.pos.x, R.alvo.z - P.pos.z) < 30) CO.separados = false;
+    if (P.dead || R.dead) { ultimaPos = null; longeT = 0; return; }
+    if (ultimaPos && Math.hypot(agora.x - ultimaPos.x, agora.z - ultimaPos.z) > 25 && !CO.separados) levar('salto');
     ultimaPos = agora;
     // o barco do rio, o de Mestre Pedro: ao desembarcar, o colega desembarca junto
     const nav = !!((OV.ajustes && OV.ajustes.navegando) || P.travado);
     if (navAnt && !nav) levar('salto');
     navAnt = nav;
-    if (J.ativo() && R.alvo && !R.dead && !P.dead && Math.hypot(R.alvo.x - P.pos.x, R.alvo.z - P.pos.z) > 70) { longeT += dt; if (longeT > 3) { longeT = 0; levar('longe'); } }
+    if (J.ativo() && !CO.separados && R.alvo && Math.hypot(R.alvo.x - P.pos.x, R.alvo.z - P.pos.z) > 70) { longeT += dt; if (longeT > 3) { longeT = 0; levar('longe'); } }
     else longeT = 0;
+  }
+
+  /* =====================================================================
+     OS EFEITOS DE CADA JOGADOR: tiros, orações e habilidades aparecem para os dois (só a imagem)
+     ===================================================================== */
+  CO.acao = 0; CO.replicando = false;
+  const emAcao = (obj, nome) => { const f0 = obj && obj[nome]; if (!f0) return; obj[nome] = function () { CO.acao++; try { return f0.apply(this, arguments); } finally { CO.acao--; } }; };
+  emAcao(C, 'orar'); emAcao(C, 'atacar'); emAcao(OV.habilidades, 'usar'); emAcao(OV.itens, 'usar');
+  function serMesh(m) {
+    const g = m && m.geometry, mt = m && m.material;
+    if (!g || !g.parameters || typeof THREE[g.type] !== 'function' || !mt || Array.isArray(mt)) return null;
+    return { g: g.type, p: Object.values(g.parameters).filter(v => typeof v === 'number' || typeof v === 'boolean'), c: mt.color ? mt.color.getHex() : 0xffffff, o: r2(mt.opacity === undefined ? 1 : mt.opacity),
+      b: mt.blending === THREE.AdditiveBlending ? 1 : 0, s: mt.side === THREE.DoubleSide ? 1 : 0,
+      x: [m.position.x, m.position.y, m.position.z, m.rotation.x, m.rotation.y, m.rotation.z, m.scale.x, m.scale.y, m.scale.z].map(r2), ch: m.children.map(serMesh).filter(Boolean) };
+  }
+  function desMesh(d) {
+    let geo; try { geo = new THREE[d.g](...d.p); } catch (e) { return null; }
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: d.c, transparent: true, opacity: d.o, blending: d.b ? THREE.AdditiveBlending : THREE.NormalBlending, side: d.s ? THREE.DoubleSide : THREE.FrontSide, depthWrite: false }));
+    m.position.set(d.x[0], d.x[1], d.x[2]); m.rotation.set(d.x[3], d.x[4], d.x[5]); m.scale.set(d.x[6], d.x[7], d.x[8]);
+    (d.ch || []).forEach(c => { const k = desMesh(c); if (k) m.add(k); });
+    return m;
+  }
+  C.aoFx = function (m) {
+    if (CO.replicando || !CO.ativo() || !CO.colegaOn || J.modo !== 'jogo') return;
+    if (m.k === 'ef') { if (!CO.acao) return; const ms = m.meshes.map(serMesh).filter(Boolean); if (!ms.length) return; CO.enviar({ t: 'fxp', k: 'ef', dur: r2(m.dur), m: ms }); return; }
+    CO.enviar(Object.assign({ t: 'fxp' }, m));
+  };
+  function efeitoDoColega(m) {
+    if (J.modo !== 'jogo' || !R.heroi || !R.heroi.g.visible) return;
+    CO.replicando = true;
+    try {
+      const pos = { x: R.pos.x, y: R.pos.y, z: R.pos.z };
+      if (m.k === 'anel') C.anel(m.cor, m.escala, m.dur, m.op, pos);
+      else if (m.k === 'burst') C.burstVisual(pos);
+      else if (m.k === 'proj') C.lancar({ visual: true, origem: new THREE.Vector3(m.o[0], m.o[1], m.o[2]), dir: new THREE.Vector3(m.d[0], m.d[1], m.d[2]), pesado: !!m.p, cor: m.cor || undefined, brilho: m.brilho || undefined, flecha: !!m.fl, raio: m.r, vel: m.v, alcance: m.al, dano: 0 });
+      else if (m.k === 'ef') {
+        const ms = (m.m || []).map(desMesh).filter(Boolean); if (!ms.length) return;
+        const op0 = ms.map(x => x.material.opacity);
+        C.efeito(ms, m.dur || 0.5, p => ms.forEach((x, i) => { x.material.opacity = op0[i] * (1 - p); x.children.forEach(c => { if (c.material) c.material.opacity = Math.min(c.material.opacity, op0[i] * (1 - p)); }); }));
+      }
+    } finally { CO.replicando = false; }
   }
 
   /* =====================================================================
@@ -392,11 +437,11 @@
       const ang = Math.atan2(fonte.g.position.x - P.pos.x, fonte.g.position.z - P.pos.z);
       if (P.parryT > 0 && Math.abs(OV.util.angWrap(ang - P.facing)) < 1.6) {
         CO.enviar({ t: 'atordoar', id: m.id, s: 1.5 }); if (e) e.flash = 0.12;
-        A.parry(); P.parryFlash = 0.45; J.shake(0.15); ui.toast('Sinal da Cruz! O vício cambaleia.'); return;
+        A.parry(); P.parryFlash = 0.45; J.shake(0.15); C.aparouCerto(); ui.toast('Sinal da Cruz! O vício cambaleia.'); return;
       }
       C.ferirJogador(m.d, m.st || null, e || fonte);
     } else {
-      if (P.parryT > 0 && Math.abs(OV.util.angWrap((m.a || 0) - P.facing)) < 1.6) { A.parry(); ui.toast('Sinal da Cruz! O golpe se desfaz.'); return; }
+      if (P.parryT > 0 && Math.abs(OV.util.angWrap((m.a || 0) - P.facing)) < 1.6) { A.parry(); C.aparouCerto(); ui.toast('Sinal da Cruz! O golpe se desfaz.'); return; }
       C.ferirJogador(m.d, m.st || null, e || fonte);
     }
   }
@@ -426,9 +471,12 @@
   // o mundo do anfitrião chega
   let aplicarT = 0, mundoPendente = false;
   function receberMundo(m) {
+    const primeiro = !CO.mundoHost;
     CO.mundoHost = m.prog; CO.horaHost = m.hora;
-    if (J.modo === 'jogo' && CO.convidado()) { J.prog = JSON.parse(JSON.stringify(m.prog)); mundoPendente = true; }
-    else if (J.modo !== 'jogo') telaConvidado();
+    if (J.modo === 'jogo' && CO.convidado()) { J.prog = JSON.parse(JSON.stringify(m.prog)); mundoPendente = true; return; }
+    // fora do jogo: nunca redesenha a tela por cima da criação do personagem; só libera os botões
+    if (CO.entrandoCom) { const pers = CO.entrandoCom; CO.entrandoCom = null; J.comecar(pers, null, false); return; }
+    if (primeiro) atualizarTelaConvidado();
   }
   function aplicarMundoAgora() {
     if (!mundoPendente || J.modo !== 'jogo' || performance.now() - aplicarT < 1500) return;
@@ -438,9 +486,21 @@
   }
   // o convidado não conversa nem mexe no mundo (o anfitrião conduz); também não viaja sozinho
   const proximo0 = M.interativoProximo;
-  M.interativoProximo = function (x, z) { if (CO.convidado()) return null; return proximo0.call(M, x, z); };
+  M.interativoProximo = function (x, z) {
+    if (!CO.convidado()) return proximo0.call(M, x, z);
+    // só o que é pessoal: o baú das capelas e a Casa do Peregrino
+    let best = null, bd = 1e9;
+    for (const i of M.interativos) { if (!i.pessoal) continue; const d = Math.hypot(i.x - x, i.z - z); if (d < i.r && d < bd && i.texto()) { bd = d; best = i; } }
+    return best;
+  };
   const interagir0 = J.interagir;
-  J.interagir = function () { if (CO.convidado()) { avisoUmaVez('interagir', `No co-op, quem conversa e mexe no mundo é ${CO.colegaNome || 'o anfitrião'}. Você vê tudo junto.`); return; } return interagir0.call(J); };
+  J.interagir = function () {
+    if (CO.convidado()) {
+      if (J.ativo() && !P.dead && M.interativoProximo(P.pos.x, P.pos.z)) return interagir0.call(J);
+      avisoUmaVez('interagir', `No co-op, quem conversa e mexe no mundo é ${CO.colegaNome || 'o anfitrião'}. Os baús das capelas e a Casa do Peregrino você usa à vontade.`); return;
+    }
+    return interagir0.call(J);
+  };
   const viajar0 = J.viajar;
   J.viajar = function (id) { if (CO.convidado()) { ui.toast('No co-op vocês andam juntos: só o anfitrião viaja pelos Oratórios.'); return; } return viajar0.call(J, id); };
   // o convidado salva só o próprio personagem, sem mexer no mundo dele
@@ -451,14 +511,19 @@
     const s = S.ler() || { v: 2, prog: { derrotados: [], soberba: false, oratorios: {}, visitados: [] } };
     s.pers = P.pers; return S.gravar(s);
   };
-  // quando o convidado cai, ele volta de pé ao lado do anfitrião
+  // quem cai desperta sozinho no Oratório; o outro continua onde está, e o mundo não para
+  CO.separados = false;
   const morreu0 = J.morreu;
   J.morreu = function () {
-    if (!CO.convidado()) return morreu0.call(J);
+    const comColega = CO.ativo() && CO.colegaOn && R.visto && !R.dead;
+    if (!CO.convidado() && !comColega) return morreu0.call(J);
     setTimeout(() => {
-      if (!CO.convidado() || J.modo !== 'jogo' || !P.dead) return;
-      C.resetAcoes(); C.restaurar(); C.limparEfeitos(); irParaColega(true);
-      ui.toast('Você caiu, mas se levanta ao lado do seu companheiro.'); J.salvar();
+      if (!CO.ativo() || J.modo !== 'jogo' || !P.dead) return;
+      const parcial = CO.convidado() || (CO.colegaOn && !R.dead);
+      J.renascer(parcial);
+      CO.separados = true; ultimaPos = null; longeT = 0;
+      ui.toast(`Você caiu e despertou no Oratório. ${CO.colegaNome || 'O seu companheiro'} ${R.dead ? 'também caiu' : 'continua onde estava'}: vá ao encontro dele.`);
+      if (CO.convidado()) J.salvar();
     }, 3000);
   };
   function irParaColega(cortar, x, z, f) {
@@ -470,7 +535,8 @@
   }
   let longeAvisoT = 0;
   function convidadoPerto(dt) {
-    if (!R.alvo || P.dead) return;
+    if (!R.alvo || P.dead || R.dead) return;
+    if (CO.separados) { if (Math.hypot(R.alvo.x - P.pos.x, R.alvo.z - P.pos.z) < 30) CO.separados = false; return; }
     const d = Math.hypot(R.alvo.x - P.pos.x, R.alvo.z - P.pos.z);
     longeAvisoT -= dt;
     if (d > 55 && longeAvisoT <= 0) { longeAvisoT = 8; ui.toast(`Fique perto de ${CO.colegaNome || 'o seu companheiro'}: no co-op vocês caminham juntos.`); }
@@ -522,6 +588,8 @@
       case 'golpe': if (CO.anfitriao()) aplicarGolpeDoColega(m); break;
       case 'atordoar': if (CO.anfitriao()) { const e = porIdH(m.id); if (e) atordoar0.call(I, e, m.s || 1); } break;
       case 'pedir_mundo': if (CO.anfitriao() && J.modo === 'jogo') enviarMundo(true); break;
+      // dos dois lados
+      case 'fxp': efeitoDoColega(m); break;
     }
   }
   function aoColegaEntrar(nome, voltou) {
@@ -547,7 +615,9 @@
   const comecar0 = J.comecar;
   J.comecar = function (pers, prog, novo) {
     if (CO.convidado()) {
-      if (!CO.mundoHost) { ui.toast('Esperando o anfitrião começar o jogo…'); return; }
+      // o anfitrião ainda não começou: o personagem fica guardado e entra sozinho assim que o mundo chegar
+      if (!CO.mundoHost) { CO.entrandoCom = pers; telaStatus('Quase lá', `Esperando ${esc(CO.colegaNome || 'o anfitrião')} começar o jogo. Você entra sozinho assim que o mundo dele abrir.`); CO.enviar({ t: 'pedir_mundo' }); return; }
+      CO.entrandoCom = null;
       const hi = HI(), sp = hi ? hi.semPrologo : false; if (hi) hi.semPrologo = true;
       comecar0.call(J, pers, JSON.parse(JSON.stringify(CO.mundoHost)), false);
       if (hi) hi.semPrologo = sp;
@@ -575,7 +645,7 @@
     if (ws) try { ws.close(); } catch (e) { /* nada */ }
     if (CO.convidado() && J.modo === 'jogo') J.salvar();
     const eraConvidado = CO.convidado();
-    CO.papel = null; CO.codigo = null; CO.ficha = null; CO.colegaOn = false; CO.mundoHost = null; CO.espelho = false;
+    CO.papel = null; CO.codigo = null; CO.ficha = null; CO.colegaOn = false; CO.mundoHost = null; CO.espelho = false; CO.entrandoCom = null; CO.separados = false;
     tirarColega(); porIdC.clear(); atualizarTag();
     setTimeout(() => { CO.saindo = false; }, 500);
     if (voltarAoMenu && J.modo === 'jogo') setTimeout(() => { if (D.aberto) fechar0.call(D); irMenu0.call(J); }, eraConvidado ? 2500 : 0);
@@ -665,11 +735,18 @@
   function telaConvidado() {
     if (!CO.convidado() || J.modo === 'jogo') return;
     const s = S.ler(), pronto = !!CO.mundoHost;
-    const cont = s && s.pers ? `<button class="btn" data-act="continuar" data-foco ${pronto ? '' : 'disabled'}>Entrar com ${esc(s.pers.nome)} (nível ${s.pers.nivel})</button>` : '';
-    ui.ov(`<div class="card coop"><p class="eyebrow">Co-op · você é o convidado</p><h2 class="title">Sala ${CO.codigo}</h2>
-      <p class="coop-status" id="coopStatus">${pronto ? `Você vai jogar no mundo de ${esc(CO.colegaNome)}. Escolha o seu personagem:` : `Esperando ${esc(CO.colegaNome)} começar o jogo…`}</p>
-      <ul class="coop-regras"><li>Você leva o seu personagem: XP, moedas e itens ficam com você.</li><li>O mundo, as missões e as conversas são do anfitrião; você vê e luta junto.</li><li>O seu jogo solo não muda: só o personagem é salvo.</li></ul>
-      <div class="menu-actions">${cont}<button class="btn${cont ? ' ghost' : ''}" data-act="novo" ${pronto ? '' : 'disabled'}>Criar um personagem</button><button class="btn ghost" data-coop="cancelar">Sair da sala</button></div></div>`, 'menu');
+    const espera = 'Esperando o anfitrião começar';
+    const cont = s && s.pers ? `<button class="btn" data-act="continuar" data-foco data-entrar ${pronto ? '' : 'disabled'}>${pronto ? `Entrar com ${esc(s.pers.nome)} (nível ${s.pers.nivel})` : espera}</button>` : '';
+    ui.ov(`<div class="card coop coop-convidado"><p class="eyebrow">Co-op · você é o convidado</p><h2 class="title">Sala ${CO.codigo}</h2>
+      <p class="coop-status" id="coopStatus">${pronto ? `Você vai jogar no mundo de ${esc(CO.colegaNome)}. Escolha o seu personagem:` : `${esc(CO.colegaNome)} ainda não começou o jogo. Os botões se acendem assim que o mundo dele abrir.`}</p>
+      <ul class="coop-regras"><li>Você leva o seu personagem: XP, moedas e itens ficam com você.</li><li>O mundo, as missões e as conversas são do anfitrião; você vê e luta junto.</li><li>Os baús das capelas e a Casa do Peregrino são seus: abra quando quiser.</li></ul>
+      <div class="menu-actions">${cont}<button class="btn${cont ? ' ghost' : ''}" data-act="novo" data-entrar ${pronto ? '' : 'disabled'}>${pronto ? 'Criar um personagem' : (cont ? 'Criar um personagem' : espera)}</button><button class="btn ghost" data-coop="cancelar">Sair da sala</button></div></div>`, 'menu');
+  }
+  // o mundo do anfitrião chegou: acende os botões na tela que já está aberta, sem trocar de tela
+  function atualizarTelaConvidado() {
+    const card = document.querySelector('#ov .card.coop-convidado');
+    if (!card) return; // o convidado está criando o personagem (ou em outra tela): não mexe
+    telaConvidado();
   }
   $('ov').addEventListener('click', ev => {
     const b = ev.target.closest('[data-coop]'); if (!b) return;

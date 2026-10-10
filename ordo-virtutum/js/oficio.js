@@ -106,7 +106,7 @@
   const refresh0 = IT.refresh;
   IT.refresh = function () {
     refresh0.call(IT);
-    const el = document.getElementById('inv'); if (!el || el.hidden || !P.pers) return;
+    const el = document.getElementById('inv'); if (!el || el.hidden || !P.pers || (IT.modoAtual && IT.modoAtual() === 'casa')) return;
     const b = bolsa(), ks = Object.keys(b).filter(k => b[k] > 0 && MAT[k]);
     const html = `<h3>Bolsa de materiais</h3><ul class="mats">${ks.length ? ks.map(k => `<li><b>${esc(MAT[k][0])}</b><em>×${b[k]}</em></li>`).join('') : '<li class="vazio">Vazia. Os vícios vencidos às vezes deixam cair materiais, que os ferreiros sabem usar.</li>'}</ul>`;
     const foot = el.querySelector('.foot'); if (foot) foot.insertAdjacentHTML('beforebegin', html); else el.insertAdjacentHTML('beforeend', html);
@@ -123,6 +123,7 @@
     P.pers.denarios -= r.den || 0; for (const k in r.mats) OF.tirar(k, r.mats[k]);
     const id = typeof r.item === 'function' ? r.item() : r.item;
     const fim = () => {
+      if (r.decor) { if (OV.casa) OV.casa.ganhar(r.decor, true); ui.toast(`Forjado: ${OV.casa.DECOR[r.decor].nome}. A peça já está na Casa do Peregrino, esperando um encaixe.`); if (A.bell) A.bell(784, 0.14); if (OV.jogo) OV.jogo.salvar(); return; }
       if (!IT.dar(id, 1, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + 1;
       ui.toast(`Forjado: ${OV.ITENS[id].nome}. Equipe-o no inventário (I).`); if (A.bell) A.bell(784, 0.14);
       if (OV.jogo) OV.jogo.salvar();
@@ -133,8 +134,9 @@
     const nome = M.figuras[cfg.npc].op.nome;
     const rs = cfg.receitas.filter(r => !r.mostrar || r.mostrar());
     const opc = rs.map(r => {
-      const id = typeof r.item === 'function' ? r.item() : r.item, feito = tem(id);
-      return { t: () => feito ? `${OV.ITENS[id].nome} (já forjada)` : `Forjar: ${OV.ITENS[id].nome} — ${custoTxt(r)}`, cond: () => !feito && !falta(r).length, motivo: () => feito ? 'você já tem' : 'falta: ' + falta(r).join(', '), ef: () => forjar(cfg.npc, r, cfg.forja) };
+      const id = typeof r.item === 'function' ? r.item() : r.item, feito = r.decor ? !!(OV.casa && OV.casa.tem(r.decor)) : tem(id);
+      const nomeR = r.decor ? (OV.casa ? OV.casa.DECOR[r.decor].nome + ' (para a casa)' : r.decor) : OV.ITENS[id].nome;
+      return { t: () => feito ? `${nomeR} (já forjada)` : `Forjar: ${nomeR} — ${custoTxt(r)}`, cond: () => !feito && !falta(r).length, motivo: () => feito ? 'você já tem' : 'falta: ' + falta(r).join(', '), ef: () => forjar(cfg.npc, r, cfg.forja) };
     }).concat([{ t: 'Que materiais servem para quê?', ir: 'm' }, { t: cfg.adeus || 'Só vim ver o fogo.' }]);
     return { inicio: 'a', nos: {
       a: { quem: nome, txt: typeof cfg.saudacao === 'function' ? cfg.saudacao() : cfg.saudacao, opc },
@@ -196,6 +198,7 @@
     receitas: [{ item: () => OF.idArma(3), den: 160, mats: { elitro: 3, asa: 2, chifreBezerro: 1, seda: 2 }, fala: 'Está pronta. Foi temperada em água benta e no silêncio de três noites. Não a use para a sua glória.' }]
   };
   MS.ARV.dunstano = () => menuFerreiro(cfgDun);
+  OF.FERREIROS = { lia: cfgLia, eustaquio: cfgEust, dunstano: cfgDun };
 
   /* ===================================================================
      O ANJO DA GUARDA, QUANDO É CHAMADO

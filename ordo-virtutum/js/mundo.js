@@ -375,6 +375,10 @@
   // número do ato de cada região (para o rastreador de missões)
   M.atoDaRegiao = k => ({ vale: 1, cripta: 1, porto: 2, minas: 3, corte: 4 })[k] || 1;
 
+  // a Casa do Peregrino de cada região (construída em casa.js): o lugar é reservado já aqui, para nada nascer dentro dela
+  M.CASAS_PEREGRINO = [['vale', 18, 96, -0.322], ['porto', -29, 655, Math.PI / 2], ['minas', -920, 1, 0.227], ['corte', -19, -893, 0.237]];
+  M.RECTS = M.RECTS || [];
+  M.CASAS_PEREGRINO.forEach(([, x, z, rot]) => { const r = [x, z, 13, 11, rot]; r.reserva = true; M.RECTS.push(r); });
   M.PREVIEW = { x: 0, z: 9 };
   M.INICIO = { x: 0, z: 182, facing: Math.PI };
 })(window.OV);

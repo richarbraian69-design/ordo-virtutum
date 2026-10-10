@@ -53,6 +53,8 @@
   for (const k in L) reservas.push([L[k].x, L[k].z, L[k].r]);
   for (const k in BAUS) BAUS[k].forEach(([x, z]) => reservas.push([x, z, 3.2]));
   for (const k in ACHADOS) ACHADOS[k].forEach(([x, z]) => reservas.push([x, z, 2.4]));
+  // a Casa do Peregrino de cada região (e, na vila, a banca da santeira)
+  (M.CASAS_PEREGRINO || []).forEach(([rg, x, z]) => reservas.push([x, z, rg === 'vale' ? 11 : 9]));
   M.RESERVAS = reservas;
   M.reservado = (x, z, m) => { m = m || 0; for (const [a, b, r] of reservas) if (Math.abs(x - a) < r + m && Math.abs(z - b) < r + m && Math.hypot(x - a, z - b) < r + m) return true; return false; };
 })(window.OV);

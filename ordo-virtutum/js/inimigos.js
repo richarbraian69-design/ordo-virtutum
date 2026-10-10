@@ -353,7 +353,7 @@
         fim = true;
         const ang = Math.atan2(pos.x - P.pos.x, pos.z - P.pos.z);
         if (P.remoto) ferirAlvo(P, p.dano, p.status, p.fonte, ang);
-        else if (P.parryT > 0 && Math.abs(OV.util.angWrap(ang - P.facing)) < 1.6) { if (OV.audio) OV.audio.parry(); OV.ui.toast('Sinal da Cruz! O golpe se desfaz.'); }
+        else if (P.parryT > 0 && Math.abs(OV.util.angWrap(ang - P.facing)) < 1.6) { if (OV.audio) OV.audio.parry(); OV.ui.toast('Sinal da Cruz! O golpe se desfaz.'); if (C_().aparouCerto) C_().aparouCerto(); }
         else C_().ferirJogador(p.dano, p.status, p.fonte);
         break;
       }
@@ -545,8 +545,10 @@
         const a = Math.atan2(e.home.x - g.position.x, e.home.z - g.position.z);
         g.rotation.y = turnTo(g.rotation.y, a, 6 * dt);
         g.position.x += Math.sin(g.rotation.y) * def.speed * dt; g.position.z += Math.cos(g.rotation.y) * def.speed * dt;
-        e.hp = Math.min(def.hp, e.hp + def.hp * 0.25 * dt);
-        if (casa < 1.5) e.state = 'idle';
+        // só se cura enquanto anda de verdade para casa; preso (num muro, numa árvore), fica onde está e para de se curar
+        if (e.voltarMelhor === undefined || casa < e.voltarMelhor - 0.05) { e.voltarMelhor = casa; e.voltarPreso = 0; e.hp = Math.min(def.hp, e.hp + def.hp * 0.25 * dt); }
+        else e.voltarPreso = (e.voltarPreso || 0) + dt;
+        if (casa < 1.5 || e.voltarPreso > 1.2) { if (casa >= 1.5) e.home = { x: g.position.x, z: g.position.z }; e.state = 'idle'; e.voltarMelhor = undefined; e.voltarPreso = 0; }
       }
       else if (e.state === 'chase') {
         if (casa > (def.leash || 32)) e.state = 'voltar';

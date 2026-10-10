@@ -14,7 +14,7 @@
     const box = $('toast');
     const t = document.createElement('div'); t.className = 't'; t.textContent = msg;
     box.appendChild(t); void t.offsetWidth; t.classList.add('on');
-    const dur = Math.min(8500, 3800 + msg.length * 48);
+    const dur = Math.min(11000, 5200 + msg.length * 55); // tempo de sobra para ler
     setTimeout(() => { t.classList.remove('on'); t.classList.add('sai'); setTimeout(() => { t.remove(); if (filaToast.length) mostrarToast(filaToast.shift()); }, 450); }, dur);
   }
   ui.toast = function (msg) {

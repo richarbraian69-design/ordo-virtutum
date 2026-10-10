@@ -613,6 +613,64 @@ body:has(#mapa:not([hidden])) :is(#minimapa,#bussola,#tracker,#toast){visibility
 .coop-nome i{display:block;width:64px;height:4px;margin:3px auto 0;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25)}
 .coop-nome u{display:block;height:100%;background:#7cc46a;text-decoration:none}
 .coop-nome em{display:block;font-size:12px;color:#ff9a8a}
+/* a bússola sem o pergaminho: só os símbolos de direção */
+#bussola{background:none !important;box-shadow:none !important;border:0 !important;opacity:1}
+#bussola::before,#bussola::after{display:none !important}
+/* ---- v19: o inventário em grade, com ícones e descrição ---- */
+#inv .inv-top{flex-wrap:wrap}
+#inv .inv-ordem{display:flex;align-items:center;gap:6px;margin-left:auto;font-family:var(--display);font-size:13px;color:var(--tinta2)}
+#inv .inv-ordem button{background:none;border:1px solid transparent;color:var(--rubro2);font-family:var(--display);font-size:13px;padding:2px 8px;cursor:pointer}
+#inv .inv-ordem button.on{border-color:var(--ouro);background:rgba(201,149,47,.18)}
+#inv h3 small{font-family:var(--mono);font-size:12px;letter-spacing:0;color:var(--tinta2);margin-left:6px}
+#inv .eqs{grid-template-columns:repeat(auto-fit,minmax(78px,96px));justify-content:start;gap:10px}
+#inv .eqc{display:flex;flex-direction:column;align-items:center;gap:4px}
+#inv .eqc>span:first-child{font-family:var(--display);font-size:11px;letter-spacing:.08em;color:var(--rubro)}
+#inv .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;max-width:420px}
+#inv .cols.duas .grade{max-width:none}
+#inv .cel{position:relative;width:100%;aspect-ratio:1;min-width:52px;max-width:64px;display:flex;align-items:center;justify-content:center;padding:0;
+  border:1px solid rgba(93,70,49,.5);background:rgba(255,248,226,.32);box-shadow:inset 0 0 0 2px rgba(255,248,226,.28),inset 0 -6px 10px rgba(93,70,49,.12);color:var(--tinta);cursor:pointer}
+#inv .eqc .cel{width:58px;min-width:58px}
+#inv .cel.vazia{cursor:default;background:rgba(93,70,49,.07);border-style:dashed;border-color:rgba(93,70,49,.28);box-shadow:none}
+#inv .cel .ico{width:62%;height:62%}
+#inv .cel .ico.fantasma{opacity:.22}
+#inv .cel em{position:absolute;right:3px;bottom:1px;font-style:normal;font-family:var(--mono);font-size:13px;color:var(--rubro2);text-shadow:0 0 3px #f6ecd2}
+#inv .cel.raro{border-color:var(--ouro);color:#7a5414;box-shadow:inset 0 0 0 2px rgba(226,184,90,.45),0 0 8px rgba(226,184,90,.45)}
+#inv .cel.insigne{border-color:var(--ouro);color:#5a3c10;box-shadow:inset 0 0 0 2px rgba(226,184,90,.35)}
+#inv .cel.corr{border-color:#6a3a7a;color:#4e2460;background:rgba(110,60,130,.12)}
+#inv .cel[data-id]:hover{background:rgba(201,149,47,.24)}
+#inv .cel.sel{outline:2px solid var(--rubro);outline-offset:1px;background:rgba(201,149,47,.3)}
+#inv .inv-det{margin-top:14px;display:flex;gap:16px;align-items:flex-start;justify-content:space-between;border-top:1px solid var(--fio);padding-top:10px;min-height:64px}
+#inv .det-txt{min-width:0;flex:1}
+#inv .det-acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#inv .det-vazio{margin:0;color:var(--tinta2);font-style:italic;font-size:14px}
+#inv .tt-nome,#invTip .tt-nome{display:block;font-family:var(--gotica);font-weight:600;font-size:19px;color:var(--rubro2);line-height:1.15}
+#inv .tt-tipo,#invTip .tt-tipo{display:block;font-family:var(--display);font-size:12px;letter-spacing:.08em;color:var(--ouro);margin-top:1px}
+#inv .tt-efeito,#invTip .tt-efeito{margin:5px 0 0;font-size:15px;line-height:1.35;color:var(--tinta)}
+#inv .tt-hagio,#invTip .tt-hagio{margin:6px 0 0;padding-top:5px;border-top:1px solid var(--fio);font-style:italic;font-size:14px;line-height:1.35;color:var(--tinta2)}
+#invTip{position:fixed;z-index:60;max-width:300px;padding:10px 13px;pointer-events:none;background:var(--pergaminho);border:1px solid var(--ouro);box-shadow:0 0 0 3px rgba(43,28,16,.55),0 8px 22px rgba(0,0,0,.5);color:var(--tinta);font-family:var(--body)}
+@media (hover:none){#invTip{display:none}}
+@media (max-width:700px){#inv .inv-ordem{margin-left:0;order:3;width:100%}#inv .inv-det{flex-direction:column}}
+/* ---- v19: o painel de decorar a Casa do Peregrino ---- */
+#inv .cs-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:18px;margin-top:6px}
+#inv .cs-comodo h4{margin:10px 0 4px;font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.12em;color:var(--rubro)}
+#inv .cs-enc{display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--fio);padding:6px 6px;cursor:pointer;color:var(--tinta);font-family:var(--body);font-size:15px}
+#inv .cs-enc span small{display:block;font-size:11px;color:var(--tinta3);font-family:var(--display);letter-spacing:.08em}
+#inv .cs-enc em{font-style:italic;color:var(--tinta2);font-size:13px;text-align:right}
+#inv .cs-enc:hover{background:rgba(201,149,47,.14)}
+#inv .cs-enc.sel{background:rgba(201,149,47,.26);box-shadow:inset 3px 0 0 var(--rubro)}
+#inv .cs-pecas h3{margin-top:4px}
+#inv .cs-peca{display:block;width:100%;text-align:left;margin:0 0 6px;padding:8px 10px;background:rgba(255,248,226,.3);border:1px solid rgba(93,70,49,.4);cursor:pointer;color:var(--tinta);font-family:var(--body)}
+#inv .cs-peca:hover{border-color:var(--ouro);background:rgba(201,149,47,.16)}
+#inv .cs-peca.sel{border-color:var(--rubro);box-shadow:inset 0 0 0 1px var(--ouro);background:rgba(201,149,47,.24)}
+#inv .cs-peca b{display:block;font-family:var(--gotica);font-weight:600;font-size:17px;color:var(--rubro2)}
+#inv .cs-peca small{display:block;font-size:14px;line-height:1.3}
+#inv .cs-peca i{display:block;margin-top:3px;font-size:13px;line-height:1.3;color:var(--tinta2)}
+#inv .cs-peca u{display:block;margin-top:3px;text-decoration:none;font-family:var(--display);font-size:12px;color:var(--ouro)}
+#inv .cs-tirar{background:none;border:1px solid var(--tinta3);color:var(--rubro2);font-family:var(--display);font-size:13px;padding:3px 10px;cursor:pointer}
+#inv .cs-vazio{color:var(--tinta2);font-style:italic;font-size:14px}
+#inv .cs-faltam{margin:0;padding-left:18px;font-size:14px;line-height:1.45;color:var(--tinta)}
+#inv .cs-faltam small{color:var(--tinta2)}
+@media (max-width:700px){#inv .cs-cols{grid-template-columns:1fr}}
 </style>
 
 <canvas id="c" aria-label="Ordo Virtutum, cena 3D"></canvas>
@@ -708,6 +766,8 @@ body:has(#mapa:not([hidden])) :is(#minimapa,#bussola,#tracker,#toast){visibility
 <script src="js/ajustes.js" charset="utf-8"></script>
 <script src="js/oficio.js" charset="utf-8"></script>
 <script src="js/biblicas.js" charset="utf-8"></script>
+<script src="js/estrada.js" charset="utf-8"></script>
+<script src="js/casa.js" charset="utf-8"></script>
 <script src="js/viagem.js" charset="utf-8"></script>
 <script src="js/rumo.js" charset="utf-8"></script>
 <script src="js/jogo.js" charset="utf-8"></script>

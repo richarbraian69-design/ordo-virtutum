@@ -37,7 +37,8 @@
   M.animados.push((dt, t) => {
     const J = OV.jogo, h = P.heroi;
     const jogo = J && J.modo === 'jogo' && h && !P.dead;
-    const escuro = jogo && ((OV.tempo && OV.tempo.ehNoite()) || P.pos.x > 200);
+    // a vela acende ao entardecer (17h) e só se apaga de manhã; debaixo da terra, sempre
+    const escuro = jogo && ((OV.tempo && (OV.tempo.hora >= 17 || OV.tempo.hora < 6)) || P.pos.x > 200);
     const naMao = escuro && !P.carga;
     if (h && vela.parent !== h.armL) { if (vela.parent) vela.parent.remove(vela); h.armL.add(vela); }
     vela.visible = !!naMao; P.velaMao = !!naMao;

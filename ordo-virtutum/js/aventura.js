@@ -184,21 +184,22 @@
     return best;
   }
   function gestoPadrao(c) {
-    return () => {
+    return (dt) => {
       const f = c.f; if (!f.bracos) return;
       const [L, R] = f.bracos, t = c.t, ac = c.cfg.acao;
       let l = 0, r = 0;
       if (c.fase === 'voo') { l = -0.9; r = -0.9; }
       else if (c.fase === 'andar') { l = -0.9; r = -0.9; }
       else if (c.fase === 'usar') {
-        if (ac === 'forja') { r = -2.6 + Math.abs(Math.sin(t * 7)) * 2.0; l = -0.6; }
-        else if (ac === 'panela') { r = -1.2 + Math.sin(t * 5) * 0.35; l = -1.0 + Math.cos(t * 5) * 0.2; }
-        else if (ac === 'tocar') { l = -1.2; r = -0.9 + Math.sin(t * 14) * 0.25; }
+        if (ac === 'forja') { r = -2.4 + Math.abs(Math.sin(t * 3.4)) * 1.9; l = -0.6; } // o martelo sobe e desce no ritmo de quem trabalha
+        else if (ac === 'panela') { r = -1.2 + Math.sin(t * 2.6) * 0.35; l = -1.0 + Math.cos(t * 2.6) * 0.2; }
+        else if (ac === 'tocar') { l = -1.2; r = -0.9 + Math.sin(t * 6) * 0.25; }
         else if (ac === 'beber') { r = -2.4; l = -2.3; }
         else if (ac === 'dar' || ac === 'ler') { r = -1.8; l = -1.6; }
         else { r = -1.6; l = -0.8; }
       }
-      L.rotation.x += (l - L.rotation.x) * 0.25; R.rotation.x += (r - R.rotation.x) * 0.25;
+      const kk = 1 - Math.exp(-7 * (dt || 0.016)); // segue o tempo, não os quadros
+      L.rotation.x += (l - L.rotation.x) * kk; R.rotation.x += (r - R.rotation.x) * kk;
     };
   }
   const ESTACAO = { forja: 1.2, panela: 1.1, lareira: 1.3, pendurar: 0.9, altar: 1.1, tocar: 0, dar: 0, beber: 0, ler: 0, curral: 0, colocar: 0 };
@@ -217,8 +218,8 @@
     const maoNpc = () => f && f.bracos ? maoDe(f.bracos[1]) : f ? new THREE.Vector3(f.x, H(f.x, f.z) + 1.3, f.z) : null;
     if (c.fase === 'voo') {
       const destino = (ac === 'curral' || ac === 'colocar' || !f) && c.alvo ? new THREE.Vector3(c.alvo.x, c.alvo.y, c.alvo.z) : maoNpc();
-      const k = Math.min(1, c.t / 0.9);
-      c.obj.position.copy(arco(c.de, destino, k, 0.8)); c.obj.rotation.y += dt * 4;
+      const k = Math.min(1, c.t / 1.3); // o objeto voa devagar, para dar tempo de ver
+      c.obj.position.copy(arco(c.de, destino, k * k * (3 - 2 * k), 0.8)); c.obj.rotation.y += dt * 2.5;
       if (k >= 1) {
         if (f && c.alvo && ESTACAO[ac]) {
           // quem recebe vai até a forja, a panela, o altar
@@ -234,7 +235,8 @@
       if (c.melhor === undefined || dd < c.melhor - 0.02) { c.melhor = dd; c.parado = 0; } else c.parado = (c.parado || 0) + dt;
       if (!f.destino || c.t > 6 || c.parado > 0.5) { if (f.destino) { const d = f.destino; f.destino = null; f.mover(d.x, d.z, d.rot); } c.fase = 'usar'; c.t = 0; comecarUso(c); }
     } else if (c.fase === 'usar') {
-      const dur = c.cfg.dur || (ac === 'tocar' ? 3.4 : ac === 'forja' ? 3 : ac === 'dar' || ac === 'beber' || ac === 'ler' ? 1.8 : 2.6);
+      // cada cena dura de 3 a 5 segundos (as durações de missão mais curtas que 3 s sobem para 3)
+      const dur = Math.max(3, c.cfg.dur || (ac === 'tocar' ? 4.2 : ac === 'forja' ? 4.4 : ac === 'panela' ? 4 : ac === 'dar' || ac === 'beber' || ac === 'ler' ? 3 : 3.6));
       usar(c, dt);
       if (c.t >= dur) { c.fase = 'fim'; c.t = 0; }
     } else if (c.fase === 'fim') {
@@ -264,13 +266,13 @@
     const mao = f && f.bracos ? maoDe(f.bracos[1]) : null;
     if (ac === 'forja' || ac === 'lareira' || ac === 'panela') {
       // a coisa vai para dentro do fogo ou da panela
-      if (a) { const k = Math.min(1, c.t / 0.7); c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), k * 0.25); c.obj.scale.setScalar(Math.max(0.01, 1 - k)); }
+      if (a) { const k = Math.min(1, c.t / 1.4); c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-3 * dt)); c.obj.scale.setScalar(Math.max(0.01, 1 - k)); }
     } else if (ac === 'pendurar' || ac === 'altar') {
-      if (a) { c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 0.15); c.obj.rotation.y = 0; if (c.obj.userData.ave) c.obj.userData.ave.position.y = -0.02 + Math.abs(Math.sin(c.t * 9)) * 0.05; }
+      if (a) { c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-4 * dt)); c.obj.rotation.y = 0; if (c.obj.userData.ave) c.obj.userData.ave.position.y = -0.02 + Math.abs(Math.sin(c.t * 5)) * 0.05; }
     } else if (ac === 'curral') {
-      if (a) { c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 0.12); c.obj.rotation.y += dt * 1.5; }
+      if (a) { c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-3.5 * dt)); c.obj.rotation.y += dt * 1.2; }
     } else if (ac === 'colocar') {
-      if (a) c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 0.15);
+      if (a) c.obj.position.lerp(new THREE.Vector3(a.x, a.y, a.z), 1 - Math.exp(-4 * dt));
     } else if (mao) {
       // dar, beber, ler, tocar: fica na mão de quem recebeu
       c.obj.position.copy(mao); if (ac === 'beber') c.obj.position.y += 0.1;
@@ -288,7 +290,17 @@
     guardaT -= dt; if (guardaT > 0) return; guardaT = 0.5;
     guardas.forEach((g, tag) => {
       const d = Math.hypot(P.pos.x - g.x, P.pos.z - g.z);
-      if (!g.on && d < 85) { g.on = true; g.fn(); }
+      // quem já foi vencido no grupo só volta depois do amanhecer seguinte
+      const dia = OV.jogo.dia ? OV.jogo.dia() : 0;
+      if (g.mortos) I.porTag(tag).forEach(e => { if (e.guardaIdx !== undefined && (e.state === 'dead' || e.state === 'liberto')) g.mortos.set(e.guardaIdx, dia); });
+      if (!g.on && d < 85) {
+        g.mortos = g.mortos || new Map();
+        for (const [k, dd] of g.mortos) if (dia > dd) g.mortos.delete(k);
+        g.on = true; g.fn();
+        const membros = I.porTag(tag);
+        membros.forEach((e, k) => { e.guardaIdx = k; if (g.mortos.has(k) && !e.removed) { M.scene.remove(e.g); if (e.lab) e.lab.el.remove(); e.removed = true; } });
+        I.lista = I.lista.filter(e => !(e.tag === tag && e.removed && e.state !== 'dead'));
+      }
       else if (g.on && d > 125) {
         if (I.porTag(tag).some(e => vivo(e) && e.state !== 'idle' && e.state !== 'voltar')) return; // ainda na luta
         g.on = false; MS.tagRemove(tag);
@@ -414,7 +426,8 @@
       const novos = (ct.equipLista || Object.keys(OV.ITENS).filter(k => OV.ITENS[k].slot && !OV.ITENS[k].guilda)).filter(id => !tem(id));
       if (novos.length) { const id = novos[(Math.random() * novos.length) | 0]; if (!IT.dar(id, 1, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + 1; out.push(OV.ITENS[id].nome); }
     }
-    if (ct.raro && Math.random() < ct.raro) { if (!IT.dar('exame', 1, true)) P.pers.bau.exame = (P.pers.bau.exame || 0) + 1; out.push(OV.ITENS.exame.nome); }
+    // os baús raros guardam uma peça para a Casa do Peregrino (a Vela do Exame nunca vem de baú)
+    if (ct.raro && Math.random() < ct.raro && OV.casa) { const dk = OV.casa.sortearNova('bau'); if (dk && OV.casa.ganhar(dk, true)) out.push(`${OV.casa.DECOR[dk].nome} (para a Casa do Peregrino)`); }
     setTimeout(() => ui.toast(out.length ? 'No baú: ' + out.join(', ') + '.' : 'O baú estava vazio... alguém chegou antes.'), 600);
     MS.evento('bau', cfg);
     OV.jogo.salvar();
