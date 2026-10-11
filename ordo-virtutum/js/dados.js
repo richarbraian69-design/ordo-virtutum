@@ -1,6 +1,8 @@
 /* Ordo Virtutum — dados do jogo: virtudes, ordens, armas, orações, pecados */
 window.OV = window.OV || {};
 (function (OV) {
+  // v24: a economia ficou mais apertada (os denários vinham fáceis demais)
+  OV.ECON = { inimigos: 0.5, baus: 0.65, missoes: 0.65, contratos: 0.7 };
   'use strict';
 
   const U = {};

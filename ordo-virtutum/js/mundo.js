@@ -115,7 +115,8 @@
     if (z > 400 && OV.porto) return OV.porto.altura(x, z);
     let h = M.nivelar(x, z, relevo(x, z));
     // no rio, o pé firma num vau raso: a água bate na cintura, nunca acima
-    if (Math.abs(x - M.rioX(z)) < 7 && Math.abs(z) < 232) h = Math.max(h, VAU);
+    // (v24: o vau acompanha a água do rio: quem atravessa fica com a água na cintura, nem flutua nem afunda)
+    if (Math.abs(x - M.rioX(z)) < 7 && Math.abs(z) < 232) h = Math.max(h, M.aguaY ? Math.min(VAU, M.aguaY(z) - 0.9) : VAU);
     for (const p of M.PONTES) if (Math.abs(z - p.z) < 2.2 && Math.abs(x - p.x) < 6.2) return Math.max(h, p.deck);
     return h;
   };
@@ -159,7 +160,9 @@
       }
       if (mudou) { pos.needsUpdate = true; t.geometry.computeVertexNormals(); t.geometry.computeBoundingSphere(); }
     }
+    if (OV.cenario && OV.cenario.reassentarChao) OV.cenario.reassentarChao();
   };
+  M.temPatamar = (x, z) => gradeP.has(Math.floor(x / GP) + ',' + Math.floor(z / GP));
 
   /* ---- terreno ---- */
   (function () {
@@ -185,7 +188,23 @@
     // o rio
     const pts = []; for (let z = -230; z <= 230; z += 3) pts.push(z);
     const wg = new THREE.BufferGeometry(); const vtx = [], idx = [];
-    pts.forEach((z, i) => { const x = M.rioX(z); vtx.push(x - 3.6, -0.9, z, x + 3.6, -0.9, z); if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });
+    // v24: a água acompanha o leito (antes ficava numa altura só, e sumia debaixo da terra onde o vale sobe)
+    // a lâmina fica 0,8 acima do fundo, mas nunca muito acima das margens (senão flutuaria no ar), e sempre acima do fundo
+    const leito = pts.map(z => {
+      const x = M.rioX(z); let m = 1e9; for (let dx = -1.5; dx <= 1.5; dx += 0.75) m = Math.min(m, relevo(x + dx, z));
+      const margem = Math.min(relevo(x - 3.6, z), relevo(x + 3.6, z));
+      return Math.max(m + 0.3, Math.min(m + 0.8, margem + 0.3));
+    });
+    M.relevoBruto = relevo;
+    // suaviza só nos trechos planos; nas corredeiras da serra a lâmina desce junto com o leito
+    const ys = leito.map((y, i) => { let s = 0, n = 0, lo = 1e9, hi = -1e9; for (let k = -2; k <= 2; k++) { const j = i + k; if (j >= 0 && j < leito.length) { s += leito[j]; n++; lo = Math.min(lo, leito[j]); hi = Math.max(hi, leito[j]); } } return hi - lo > 0.6 ? y : Math.min(y + 0.15, s / n); });
+    M.aguaY = z => { const f = Math.max(0, Math.min(ys.length - 1.001, (z + 230) / 3)), i = Math.floor(f), k = f - i; return ys[i] * (1 - k) + ys[i + 1] * k; };
+    // três vértices por fileira: onde a margem desce (a encosta corre de lado), a borda da água desce com ela e não flutua
+    pts.forEach((z, i) => {
+      const x = M.rioX(z), y = ys[i], yl = Math.min(y, relevo(x - 3.6, z) + 0.12), yr = Math.min(y, relevo(x + 3.6, z) + 0.12);
+      vtx.push(x - 3.6, yl, z, x, y, z, x + 3.6, yr, z);
+      if (i) { const a = (i - 1) * 3; for (let c = 0; c < 2; c++) { const v00 = a + c, v01 = a + c + 1, v10 = a + 3 + c, v11 = a + 4 + c; idx.push(v00, v10, v01, v01, v10, v11); } }
+    });
     wg.setAttribute('position', new THREE.Float32BufferAttribute(vtx, 3)); wg.setIndex(idx); wg.computeVertexNormals();
     M.agua = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: 0x1a2838, roughness: 0.25, metalness: 0.3, emissive: 0x060c16 }));
     scene.add(M.agua);
@@ -323,6 +342,63 @@
       p.x = b.x + ox * b.c + oz * b.s; p.z = b.z - ox * b.s + oz * b.c;
     }
     // o rio não é mais muralha: dá para atravessá-lo a vau (e o leito seco, a pé)
+  };
+
+  /* ---- v24: caminhos. Uma busca A* numa grade de 1 m em volta dos dois pontos, que contorna casas, muros,
+     árvores e pedras. Usada pelas figuras (o Padre Tomé saindo para confessar) e pelos vícios que ficariam
+     esbarrando numa parede. Devolve os pontos do caminho já esticados (sem zigue-zague), ou null. ---- */
+  M.caminho = function (x0, z0, x1, z1, r, op) {
+    r = r || 0.45; op = op || {};
+    const S = 1, mg = op.margem || 16;
+    const minx = Math.min(x0, x1) - mg, maxx = Math.max(x0, x1) + mg, minz = Math.min(z0, z1) - mg, maxz = Math.max(z0, z1) + mg;
+    const W = Math.ceil((maxx - minx) / S) + 1, Hh = Math.ceil((maxz - minz) / S) + 1;
+    if (W * Hh > 90000) return null;
+    const obs = M.obstacles.filter(o => o.r > 0 && o.x + o.r + r > minx && o.x - o.r - r < maxx && o.z + o.r + r > minz && o.z - o.r - r < maxz);
+    const cxs = M.caixas.filter(b => b.ativa && b.x + b.hw + b.hd + r > minx && b.x - b.hw - b.hd - r < maxx && b.z + b.hw + b.hd + r > minz && b.z - b.hw - b.hd - r < maxz);
+    const bloq = new Int8Array(W * Hh).fill(-1);
+    const livreP = (x, z) => {
+      for (const o of obs) { const dx = x - o.x, dz = z - o.z, m = o.r + r; if (Math.abs(dx) < m && Math.abs(dz) < m && dx * dx + dz * dz < m * m) return false; }
+      for (const b of cxs) { const dx = x - b.x, dz = z - b.z, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c; if (Math.abs(lx) < b.hw + r && Math.abs(lz) < b.hd + r) return false; }
+      if (op.extra && op.extra(x, z)) return false;
+      return true;
+    };
+    const livre = (i, j) => { if (i < 0 || j < 0 || i >= W || j >= Hh) return false; const k = j * W + i; if (bloq[k] < 0) bloq[k] = livreP(minx + i * S, minz + j * S) ? 0 : 1; return bloq[k] === 0; };
+    const cel = (x, z) => [Math.round((x - minx) / S), Math.round((z - minz) / S)];
+    const perto = (i, j) => { if (livre(i, j)) return [i, j]; for (let a = 1; a <= 4; a++) for (let di = -a; di <= a; di++) for (let dj = -a; dj <= a; dj++) if (Math.max(Math.abs(di), Math.abs(dj)) === a && livre(i + di, j + dj)) return [i + di, j + dj]; return null; };
+    const a0 = perto(...cel(x0, z0)), a1 = perto(...cel(x1, z1)); if (!a0 || !a1) return null;
+    const N = W * Hh, gsc = new Float32Array(N).fill(1e9), de = new Int32Array(N).fill(-1), fechado = new Uint8Array(N);
+    const heap = []; const push = (k, f) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, rr = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (rr < heap.length && heap[rr][0] < heap[m][0]) m = rr; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top[1]; };
+    const k0 = a0[1] * W + a0[0], k1 = a1[1] * W + a1[0], hh = k => { const i = k % W, j = (k / W) | 0; return Math.hypot(i - a1[0], j - a1[1]); };
+    gsc[k0] = 0; push(k0, hh(k0));
+    const viz = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+    let it = 0, achou = false;
+    while (heap.length && it++ < 60000) {
+      const k = pop(); if (fechado[k]) continue; fechado[k] = 1;
+      if (k === k1) { achou = true; break; }
+      const i = k % W, j = (k / W) | 0;
+      for (const [di, dj, c] of viz) {
+        const ni = i + di, nj = j + dj; if (!livre(ni, nj)) continue;
+        if (di && dj && (!livre(i + di, j) || !livre(i, j + dj))) continue; // não corta quina
+        const nk = nj * W + ni, gg = gsc[k] + c; if (gg < gsc[nk]) { gsc[nk] = gg; de[nk] = k; push(nk, gg + hh(nk)); }
+      }
+    }
+    if (!achou) return null;
+    const pts = []; for (let k = k1; k !== -1; k = de[k]) pts.push({ x: minx + (k % W) * S, z: minz + ((k / W) | 0) * S }); pts.reverse();
+    // esticar: de cada ponto, pula para o mais distante que se enxerga em linha livre
+    const linha = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.4); for (let q = 1; q < n; q++) { const t = q / n; if (!livreP(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t)) return false; } return true; };
+    const out = []; let cur = { x: x0, z: z0 }, idx = 0;
+    while (idx < pts.length - 1) { let melhor = idx + 1; for (let q = pts.length - 1; q > idx + 1; q--) if (linha(cur, pts[q])) { melhor = q; break; } cur = pts[melhor]; out.push(cur); idx = melhor; }
+    if (!out.length || Math.hypot(out[out.length - 1].x - x1, out[out.length - 1].z - z1) > 0.3) { if (livreP(x1, z1)) out.push({ x: x1, z: z1 }); }
+    return out;
+  };
+  // a linha entre dois pontos passa por alguma parede, casa ou obstáculo grande?
+  M.linhaLivre = function (x0, z0, x1, z1, r) {
+    r = r || 0.4;
+    if (M.paredeEntre(x0, z0, x1, z1)) return false;
+    const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.6);
+    for (let q = 1; q < n; q++) { const t = q / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t; for (const o of M.obstacles) { if (o.r < 0.9) continue; const dx = x - o.x, dz = z - o.z, m = o.r + r; if (Math.abs(dx) < m && Math.abs(dz) < m && dx * dx + dz * dz < m * m) return false; } }
+    return true;
   };
 
   /* ---- câmera: recua diante de paredes e copas de árvores ---- */

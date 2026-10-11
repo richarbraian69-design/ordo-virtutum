@@ -164,7 +164,7 @@
     murmurador: { key: 'murmurador', name: 'Murmurador', nivel: 4, build: makeMurmurador, hp: 72, speed: 3.2, dmg: 11, windup: 0.6, recover: 0.8, range: 1.8, r: 0.45, height: 2.2, knock: 1, stagger: true, xp: 40, mundo: true, aggro: 15, leash: 26, voa: true, moedas: [2, 4], status: null },
     gargula: { key: 'gargula', name: 'Gárgula da Acídia', nivel: 8, chefe: true, build: makeGargula, hp: 600, speed: 2.4, dmg: 24, windup: 0.85, recover: 1.0, range: 2.6, r: 0.95, height: 3.4, knock: 0.2, stagger: false, xp: 420, aggro: 30, leash: 40, status: 'preguica', moedas: [20, 30],
       fall: 'A Gárgula se desfaz em cascalho. Onde havia acídia, volta o desejo de servir.' },
-    caranguejo: { key: 'caranguejo', name: 'Caranguejo da Gula', nivel: 8, build: makeCaranguejo, hp: 120, speed: 3.0, dmg: 15, windup: 0.5, recover: 0.7, range: 1.9, r: 0.7, height: 1.1, knock: 0.6, stagger: true, xp: 55, mundo: true, aggro: 12, leash: 22, moedas: [2, 5], status: 'gula' },
+    caranguejo: { key: 'caranguejo', name: 'Caranguejo da Gula', nivel: 8, build: makeCaranguejo, hp: 120, speed: 4.3, dmg: 15, windup: 0.5, recover: 0.7, range: 1.9, r: 0.7, height: 1.1, knock: 0.6, stagger: true, xp: 55, mundo: true, aggro: 12, leash: 22, moedas: [2, 5], status: 'gula' },
     polvo: { key: 'polvo', name: 'Polvo da Gula', nivel: 12, chefe: true, build: makePolvo, hp: 1100, speed: 1.9, dmg: 30, windup: 0.85, recover: 0.95, range: 3.4, r: 1.3, height: 3.4, knock: 0.1, stagger: false, xp: 720, aggro: 32, leash: 40, status: 'gula', moedas: [30, 45],
       fall: 'Os oito braços se soltam das pedras. A gruta, enfim, para de engolir.' },
     morcego: { key: 'morcego', name: 'Morcego da Avareza', nivel: 11, build: makeMorcego, hp: 80, speed: 6.0, dmg: 13, windup: 0.4, recover: 0.6, range: 1.5, r: 0.4, height: 1.4, knock: 1.2, stagger: true, xp: 48, mundo: true, aggro: 15, leash: 26, voa: true, moedas: [3, 6], status: 'avareza' },
@@ -182,7 +182,7 @@
   Object.assign(I.PADROES, {
     murmurador: ['T3', 'r', 'T', 'I'],
     gargula: { fases: [[1, ['g', 'F', 'Tl', 'g']], [0.5, ['O', 'g', 'I', 'F', 'C']]] },
-    caranguejo: ['r', 'r', 'F', 'I'],
+    caranguejo: ['B', 'r', 'r', 'F', 'B'],
     polvo: { fases: [[1, ['g', 'T3', 'F']], [0.6, ['C', 'T5', 'g', 'O']], [0.3, ['O', 'T7', 'C', 'F', 'g']]] },
     morcego: ['I', 'r', 'T'],
     bezerro: { fases: [[1, ['g', 'I', 'F']], [0.66, ['I', 'C', 'T5', 'g']], [0.33, ['O', 'I', 'C', 'T7', 'F']]] },

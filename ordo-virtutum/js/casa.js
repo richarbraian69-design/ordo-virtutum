@@ -331,7 +331,7 @@
   function checarRecompensas() {
     const d = dados(); if (!d || !OV.jogo || !OV.jogo.prog) return;
     for (const k in DECOR) { const it = DECOR[k]; if (it.fonte === 'missao' && it.cond && !d.acervo[k] && it.cond()) CS.ganhar(k); }
-    if (!d.avisada && feita('m1')) { d.avisada = true; setTimeout(() => ui.toast('Você tem uma casa na vila: a Casa do Peregrino, perto da Capela do Peregrino. O baú dela é o mesmo das capelas, e há uma casa igual em cada região.'), 9000); }
+    if (!d.avisada && feita('m1')) { d.avisada = true; setTimeout(() => ui.toast('Você tem uma casa na vila: a Casa do Peregrino. O baú dela é o mesmo em todas as regiões, e há uma casa igual em cada uma.'), 9000); }
   }
   M.animados.push(dt => {
     checarT -= dt; if (checarT > 0) return; checarT = 1.5;

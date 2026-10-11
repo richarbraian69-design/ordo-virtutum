@@ -11,8 +11,8 @@
   const SLOTS = [['veste', 'Veste'], ['escapulario', 'Escapulário'], ['terco', 'Terço'], ['santo', 'Santo']];
   const ITENS = {
     // consumíveis
-    pao: { nome: 'Pão abençoado', tipo: 'consumivel', tecla: '5', descr: 'Recupera 35 de vida.' },
-    agua: { nome: 'Água benta', tipo: 'consumivel', tecla: '6', descr: 'Purifica todos os vícios em você e devolve 20 de Fé.' },
+    pao: { nome: 'Pão abençoado', tipo: 'consumivel', tecla: '5', descr: 'Recupera 35 de vida. Depois de comer, espere 18 s para o próximo.' },
+    agua: { nome: 'Água benta', tipo: 'consumivel', tecla: '6', descr: 'Purifica todos os vícios em você e devolve 20 de Fé. Depois de usar, espere 30 s.' },
     vela: { nome: 'Vela de cera', tipo: 'consumivel', descr: 'Acesa numa breve oração, devolve 40 de Fé.' },
     exame: { nome: 'Vela do Exame de Consciência', tipo: 'raro', descr: 'Rara. Acesa na ficha (tecla C), permite tirar pontos já distribuídos das virtudes e distribuí-los de novo.' },
     // corrompidos: só servem depois da bênção de um sacerdote
@@ -48,10 +48,12 @@
     anzol: { nome: 'Anzol de São Pedro', slot: 'santo', guilda: true, descr: 'Insígnia dos Pescadores: +10% de dano, e os vícios deixam 25% mais denários.', mods: { dano: 1.1, denarios: 1.25 } },
     lanterna: { nome: 'Lanterna de Santa Bárbara', slot: 'santo', guilda: true, descr: 'Insígnia dos Mineiros: +20 de Fé máxima, e à noite você causa 15% a mais de dano.', mods: { fe: 20, noite: 1.15 } },
     esquadro: { nome: 'Esquadro de São José', slot: 'santo', guilda: true, descr: 'Insígnia dos Artesãos: +20 de vida máxima e 12% menos dano recebido.', mods: { defesa: 0.88, hp: 20 } },
+    // v24: relíquias únicas (não caem de baú nenhum)
+    cruzEremita: { nome: 'Cruz de ferro do Eremita', slot: 'santo', unico: true, descr: 'Forjada com a picareta que achou o primeiro ouro de Valdouro. A Avareza dura metade do tempo em você, e você fere 25% a mais os vícios da avareza e o próprio Mamom.', mods: { meio: ['avareza'], contra_avareza: 1.25 } },
     tunicaBranca: { nome: 'Túnica branca', slot: 'veste', descr: '+30 de Fé máxima, +15 de vida máxima, e a Luxúria dura metade do tempo.', mods: { fe: 30, hp: 15, meio: ['luxuria'] }, cor: 0xece6d6 }
   };
   OV.ITENS = ITENS;
-  const EQUIP = Object.keys(ITENS).filter(k => ITENS[k].slot && !ITENS[k].guilda);
+  const EQUIP = Object.keys(ITENS).filter(k => ITENS[k].slot && !ITENS[k].guilda && !ITENS[k].unico);
   const CAPACIDADE = 20; // espaços da mochila; consumíveis e restos corrompidos se empilham até 10 por espaço
 
   const IT = {}; OV.itens = IT;
@@ -103,6 +105,7 @@
     let m = IT.mod('dano');
     if (!e.def.liberta && !e.def.animal && !e.def.fixo) m *= IT.mod('danoDemonio');
     if (OV.tempo && OV.tempo.ehNoite()) m *= IT.mod('noite');
+    if (e.def.status) m *= IT.mod('contra_' + e.def.status);
     return m;
   };
 
@@ -111,12 +114,17 @@
     if (!P.D || P.dead) return;
     if (!IT.qtd(id)) { ui.toast(`Você não tem ${ITENS[id].nome}.`); return; }
     if (P.status.avareza) { ui.toast('A Avareza prende a sua mão: você não consegue usar nada do que carrega. Dê esmola num Oratório.'); return; }
+    // v24: o pão e a água benta têm recarga: não se usa um atrás do outro
+    const rc = IT.RECARGA[id];
+    if (rc && (P.cd['item_' + id] || 0) > 0) { ui.toast(`${ITENS[id].nome}: espere mais ${Math.ceil(P.cd['item_' + id])} s.`); return; }
     if (id === 'pao') { if (P.hp >= P.D.maxHp) { ui.toast('Você já está com a vida cheia.'); return; } P.hp = Math.min(P.D.maxHp, P.hp + 35 * (P.status.gula ? 0.5 : 1)); OV.combate.anel(0xe8c890, 1.6, 0.6, 0.6); A.heal(); }
     else if (id === 'agua') { P.status = {}; P.fe = Math.min(P.D.maxFe, P.fe + 20); OV.combate.anel(0x8ac8ff, 2, 0.7, 0.7); A.heal(); ui.toast('A água benta purifica você.'); }
     else if (id === 'vela') { P.fe = Math.min(P.D.maxFe, P.fe + 40); OV.combate.anel(0xffd27a, 1.6, 0.7, 0.6); A.bell(523, 0.12); }
     else return;
+    if (rc) P.cd['item_' + id] = rc;
     IT.tirar(id); IT.refresh();
   };
+  IT.RECARGA = { pao: 18, agua: 30 };
   IT.equipar = function (id) {
     const it = ITENS[id], m = mochila(); if (!it || !it.slot || !IT.qtd(id)) return;
     const atual = m.equip[it.slot];
@@ -244,7 +252,10 @@
 
   /* ================= A CAPELA DO PEREGRINO E O BAÚ ================= */
   IT.capelas = [];
+  // v24: a Capela do Peregrino saiu do jogo: a Casa do Peregrino, que existe em todas as regiões, guarda o baú e o genuflexório
+  IT.CAPELAS_ATIVAS = false;
   IT.criarCapela = function (x, z, rot, nome) {
+    if (!IT.CAPELAS_ATIVAS) return null;
     const H = M.altura, MAT = M.MAT, f = M.frente;
     const g = M.grupo(x, z, rot);
     const pedra = MAT.wall, telha = MAT.roofTile;
@@ -356,7 +367,7 @@
     item: '<rect x="5" y="5" width="14" height="14" rx="2"/>'
   };
   const ICONE_ID = { pao: 'pao', peixe: 'peixe', peixeIsca: 'peixe', agua: 'frasco', vela: 'vela', exame: 'exame', essencia: 'essencia', profanado: 'profanado',
-    placas: 'armadura', cota: 'armadura', armaduraMiguel: 'armadura', iconeNicolau: 'icone', tauAntao: 'tau', reliqJorge: 'reliquia', cintoAgostinho: 'cinto',
+    placas: 'armadura', cota: 'armadura', armaduraMiguel: 'armadura', iconeNicolau: 'icone', tauAntao: 'tau', reliqJorge: 'reliquia', cruzEremita: 'crucifixo', cintoAgostinho: 'cinto',
     vieira: 'vieira', anzol: 'anzol', lanterna: 'lanterna', esquadro: 'esquadro', picareta: 'picareta', vara: 'vara', pergaminho: 'pergaminho', anelPai: 'anel' };
   const ICONE_ARMA = { espada: 'espada', cajado: 'cajado', pregacao: 'livro', aspersorio: 'aspersorio', adaga: 'adaga', machado: 'machado', cantico: 'lira', arco: 'arco', luz: 'terco', crucifixo: 'crucifixo' };
   const ICONE_SLOT = { veste: 'veste', escapulario: 'escapulario', terco: 'terco', santo: 'medalha', arma: 'espada' };
@@ -366,8 +377,8 @@
   const ORDEM_TIPO = { consumivel: 0, raro: 1, arma: 2, veste: 3, escapulario: 4, terco: 5, santo: 6, ferramenta: 7, corrompido: 8 };
   const classeDe = it => it.slot || it.tipo || 'outro';
   const NOME_TIPO = { consumivel: 'Consumível', raro: 'Raro', corrompido: 'Corrompido · precisa de bênção', ferramenta: 'Ferramenta', arma: 'Arma', veste: 'Veste', escapulario: 'Escapulário', terco: 'Terço', santo: 'Item de santo' };
-  const tipoTxt = it => (NOME_TIPO[classeDe(it)] || '') + (it.guilda && it.slot !== 'arma' ? ' · insígnia' : '') + (it.forjada ? ' · forjada' : '') + (it.raro && it.tipo === 'consumivel' ? ' · raro' : '');
-  const raridade = it => it.tipo === 'corrompido' ? 'corr' : (it.tipo === 'raro' || it.raro) ? 'raro' : (it.guilda || it.forjada) ? 'insigne' : '';
+  const tipoTxt = it => (NOME_TIPO[classeDe(it)] || '') + (it.guilda && it.slot !== 'arma' ? ' · insígnia' : '') + (it.unico ? ' · relíquia' : '') + (it.forjada ? ' · forjada' : '') + (it.raro && it.tipo === 'consumivel' ? ' · raro' : '');
+  const raridade = it => it.tipo === 'corrompido' ? 'corr' : (it.tipo === 'raro' || it.raro) ? 'raro' : (it.guilda || it.forjada || it.unico) ? 'insigne' : '';
   let ordem = 'tipo';
   try { ordem = localStorage.getItem('ov_inv_ordem') || 'tipo'; } catch (e) { /* sem armazenamento */ }
   function ordenar(ids) {
@@ -386,10 +397,10 @@
   }
   let modo = null; // 'inv' | 'bau'
   let sel = null; // { onde: 'inv'|'bau'|'eq', id, slot }
-  IT.tituloBau = 'Capela do Peregrino';
+  IT.tituloBau = 'Baú do Peregrino';
   IT.aberto = () => !!modo;
   IT.proxTitulo = null; // a Casa do Peregrino abre o mesmo baú com outro título
-  IT.abrir = function (m) { modo = m || 'inv'; sel = null; IT.tituloBau = IT.proxTitulo || 'Capela do Peregrino'; IT.proxTitulo = null; $('inv').hidden = false; IT.refresh(); };
+  IT.abrir = function (m) { modo = m || 'inv'; sel = null; IT.tituloBau = IT.proxTitulo || 'Baú do Peregrino'; IT.proxTitulo = null; $('inv').hidden = false; IT.refresh(); };
   IT.fechar = function () { if (modo === 'casa' && OV.casa) OV.casa.fechou(); modo = null; sel = null; $('inv').hidden = true; dica(null); };
   IT.abrirBau = () => { if (OV.jogo) OV.jogo.abrirInventario('bau'); };
   const celula = (id, n, onde, extra) => {
@@ -430,7 +441,7 @@
     let grade = pm.map(([id, n]) => celula(id, n, 'inv')).join('');
     for (let i = usados; i < CAPACIDADE; i++) grade += vazia();
     let html = `<div class="inv-top"><h2>${modo === 'bau' ? esc(IT.tituloBau) : 'Inventário'}</h2><div class="inv-ordem"><span>Ordenar:</span><button type="button" data-ordem="tipo" class="${ordem === 'tipo' ? 'on' : ''}">por tipo</button><button type="button" data-ordem="nome" class="${ordem === 'nome' ? 'on' : ''}">por nome</button></div><button type="button" class="btn ghost" data-acao="fechar">Fechar</button></div>`;
-    if (modo === 'bau') html += '<p class="sub">O baú do peregrino é o mesmo em todas as capelas e na Casa do Peregrino: o que você guarda aqui, encontra em qualquer outro.</p>';
+    if (modo === 'bau') html += '<p class="sub">O baú do peregrino é o mesmo em todas as Casas do Peregrino: o que você guarda aqui, encontra na casa de qualquer região.</p>';
     html += `<h3>Equipado</h3><div class="eqs">${eq}</div>`;
     html += `<div class="cols${modo === 'bau' ? ' duas' : ''}"><div><h3>Mochila <small>${usados}/${CAPACIDADE} espaços</small></h3><div class="grade">${grade}</div></div>`;
     if (modo === 'bau') {

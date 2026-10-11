@@ -127,6 +127,7 @@
     R.portaCofre(!!f.cofre_aberto);
     R.idolo(!f.mamom_vencido);
     resetarChefe();
+    if (!f.mamom_vencido && MS.ativa('a3m5') && MS.etapa('a3m5') === 2) st('a3m5').e = 1; // v24
   });
   MS.ganchos.spawn.push(() => {
     const f = F();
@@ -250,6 +251,7 @@
   function desafiar() {
     if (chefe.ativo || chefe.falando) return;
     chefe.falando = true;
+    if (MS.memChefe && MS.memChefe.tem('mamom')) { chefe.falando = false; iniciarChefe(); return; } // v24: quem já lutou não revê a cena de entrada
     const fala = () => D.abrir(arv('Mamom', {
       a: { txt: 'Veio pelo ouro? Todos vêm pelo ouro. Os mineiros cavaram para mim, o Fúlvio contou para mim, e ninguém dormiu em paz. É assim que eu gosto.', prox: 'b' },
       b: { quem: 'Anjo da Guarda', txt: () => 'É Mamom, o ídolo da avareza. Os cofres em volta o protegem: enquanto houver um de pé, os seus golpes quase não o ferem. E cuidado com a chuva de moedas: não pise onde o ouro cai.' + (F().graca_lourenco ? ' A Graça de Lourenço está com você: um golpe basta para cada cofre.' : ''),
@@ -327,7 +329,7 @@
   function pacto(b) {
     D.abrir(arv('Mamom', {
       a: { txt: 'Chega. Por que lutar com as mãos vazias? Tudo isto será seu: o ouro da Cava, a casa de Fúlvio, a cidade inteira. Só precisa se ajoelhar.', opc: [
-        { t: '"Ninguém pode servir a dois senhores. Não se pode servir a Deus e a Mamom."', ef: () => { F().pacto3 = 'recusou'; MS.ato('justica'); I.atordoar(b, 2.5); }, ir: 'r' },
+        { t: '"Ninguém pode servir a dois senhores. Não se pode servir a Deus e a Mamom."', ef: () => { F().pacto3 = 'recusou'; MS.ato('justica'); I.atordoar(b, 2.5, true); }, ir: 'r' },
         { t: 'Ajoelhar-se, só por um instante...', ef: () => { F().pacto3 = 'cedeu'; P.status.avareza = 25; b.hp = Math.min(b.def.hp, b.hp + b.def.hp * 0.2); }, ir: 'c' }] },
       r: { quem: '', txt: 'O ídolo estremece. Ouro nenhum consegue comprar quem já tem um Senhor.' },
       c: { quem: 'Anjo da Guarda', txt: 'Você se curvou, e a Avareza fechou a sua mão. Levante-se! Num Oratório, a esmola a solta de novo. E ainda é tempo de lutar.' }
@@ -362,6 +364,7 @@
         depois: () => setTimeout(() => { const q = W(4, 50); M.figuras.fulvio.ir(q.x, q.z, 0); }, 1500) }
     }));
   }
+  if (MS.missas) MS.missas.push({ nome: 'Igreja de São Lourenço', pronta: () => MS.ativa('a3m5') && MS.etapa('a3m5') === 3, iniciar: () => missa3() });
   function missa3() {
     const f = F();
     const linhas = [
@@ -374,7 +377,7 @@
     if (res('a3m4') === 'partilha') linhas.push(['Brás, o capataz', 'E os denários que você deixou no acampamento? Viraram botas, cobertores e um telhado para a escola.']);
     linhas.push(['', 'Ao fim da Missa, os sinos tocam. No alto da torre, uma chama nova se acende: a Lâmpada da Generosidade ilumina a serra.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja de São Lourenço', 'elias', linhas, () => {
       f.ato3_fim = true; MS.concluir('a3m5', f.fulvio_fim || 'perdao');
       R.acenderLampada(true); R.poco.abrir();
       [0, 600, 1200, 1800, 2400].forEach((t, i) => setTimeout(() => A.bell([262, 330, 392, 494, 523][i], 0.3), t));

@@ -195,6 +195,7 @@
   I.CENTROS = CENTROS; // as regiões dos Atos V a VII somam as suas vilas
   I.distVila = (x, z) => Math.min(...CENTROS.map(c => Math.hypot(x - c.x, z - c.z)));
   I.perigo = (x, z) => Math.max(0, Math.min(7, Math.floor((I.distVila(x, z) - 45) / 22)));
+  const REGIAO_DURA = { porto: [1.6, 1.3, 0.9], minas: [1.5, 1.28, 0.9], corte: [1.35, 1.18, 0.92], muros: [1.35, 1.18, 0.92], marca: [1.35, 1.18, 0.92], monte: [1.35, 1.18, 0.92] };
   function endurecer(base, def, x, z, opts) {
     if (FIXOS.has(base.key) || opts.semAjuste || !def.dmg) return def;
     // os vícios do Claustro Tomado lutam como se fossem de nível 7 (o Irmão Afonso, de nível 6)
@@ -211,6 +212,9 @@
     def.hp = Math.round(def.hp * (longe ? 1.45 : 1)); def.dmg = Math.round(def.dmg * (longe ? 1.35 : 1));
     if (longe) { def.windup = (def.windup || 0.6) * 0.88; def.aggro = (def.aggro || 18) + 3; }
     if (def.chefeMenor) { def.hp = Math.round(def.hp * 1.3); def.dmg = Math.round(def.dmg * 1.12); }
+    // v24: os vícios comuns dos atos II em diante estavam fáceis demais: cada região endurece os seus
+    const RF = REGIAO_DURA[M.regiao ? M.regiao(x, z) : 'vale'];
+    if (RF) { def.hp = Math.round(def.hp * RF[0]); def.dmg = Math.round(def.dmg * RF[1]); def.windup = (def.windup || 0.6) * RF[2]; }
     return fim(def);
   }
   I.endurecer = endurecer;
@@ -223,6 +227,7 @@
   const PASSOS = {
     g: PS({}), r: PS({ dmg: 0.7, wu: 0.55, rec: 0.45 }),
     F: PS({ tipo: 'forte', dmg: 1.8, wu: 2.1, rec: 1.5, area: 1.3 }),
+    B: PS({ tipo: 'investida', dmg: 1.05, wu: 0.6, rec: 1.0, vel: 17, dur: 0.32 }), // v24: o bote — uma investida curta e de surpresa
     I: PS({ tipo: 'investida', dmg: 1.25, wu: 1.5, rec: 1.3, vel: 13, dur: 0.5 }),
     T: PS({ tipo: 'tiro', dmg: 0.8, wu: 1.7, rec: 0.9, n: 1, ab: 0, vel: 12, raio: 0.22 }),
     T3: PS({ tipo: 'tiro', dmg: 0.7, wu: 1.9, rec: 1.0, n: 3, ab: 0.3, vel: 12, raio: 0.22 }),
@@ -235,7 +240,7 @@
   const PADROES = {
     possesso: ['g', 'g', 'F'], abade: ['g', 'g', 'F', 'T3', 'I'],
     lobo_cinza: ['g', 'r', 'I'], lobo: ['g', 'I', 'g', 'r', 'F'],
-    diabrete: ['T', 'g', 'T', 'I'], larva: ['g', 'Tl'], larva_gula: ['g', 'Tl', 'g'],
+    diabrete: ['T', 'g', 'T', 'I'], larva: ['g', 'Tl'], larva_gula: ['B', 'g', 'Tl', 'g'],
     ira: ['g', 'r', 'F', 'I'], preguica: ['F', 'Tl', 'g'],
     soberba: { fases: [[1, ['g', 'T3', 'g', 'F']], [0.5, ['O', 'T5', 'I', 'g', 'F']]] },
     glutao: ['g', 'g', 'F'], corvo: ['I', 'T3', 'g'],
@@ -494,7 +499,23 @@
   };
   const AJOELHADO = { hL: -1.3, kL: 1.5, fL: 0, hR: 0.1, kR: 1.5, fR: -0.5 };
 
-  I.atordoar = function (e, t) { if (e.state === 'dead') return; soltarOrbe(e); e.state = 'stun'; e.t = t; };
+  /* v24: os chefões não ficam presos em atordoamentos seguidos. Cada atordoamento num chefe vale menos que o anterior,
+     e depois dele o chefe fica alguns segundos imune (a resistência some aos poucos). */
+  I.relogio = 0;
+  I.stunImune = e => !!(e.def.chefe && e.imuneStun && I.relogio < e.imuneStun);
+  I.atordoar = function (e, t, forcar) {
+    if (e.state === 'dead') return;
+    if (e.def.chefe && !forcar) {
+      if (I.stunImune(e)) {
+        if (!e._avisoImune || I.relogio - e._avisoImune > 5) { e._avisoImune = I.relogio; if (OV.ui) OV.ui.toast(`${e.def.name} resiste: as correntes não o prendem de novo tão cedo.`); }
+        return;
+      }
+      e.cargaStun = Math.max(0, (e.cargaStun || 0) - (I.relogio - (e.ultStun || I.relogio)) * 0.01);
+      t = t * Math.max(0.3, 1 - e.cargaStun); e.cargaStun = Math.min(0.7, e.cargaStun + 0.3); e.ultStun = I.relogio;
+      e.imuneStun = I.relogio + t + 9;
+    }
+    soltarOrbe(e); e.state = 'stun'; e.t = t;
+  };
   // o atordoamento se vê e se ouve: um "tim" curto e estrelinhas sobre o nome do vício (para os dois jogadores)
   M.animados.push(() => {
     const P = OV.P; if (!P || !P.pos) return;
@@ -520,10 +541,26 @@
     return 'media';
   }
   I.agressividade = agressividade;
+  /* v24: quem persegue e tem uma casa ou um muro no meio não fica esbarrando na parede: pede um caminho (A*,
+     no máximo dois por quadro para não pesar) e anda pelos pontos dele até enxergar o alvo de novo */
+  function contornar(e, g, ax, az, d, dt, vel) {
+    const def = e.def;
+    if (def.voa || def.fixo || !M.caminho || d < 2 || d > 45 || !(def.speed > 0)) { e.rota = null; return false; }
+    if (!M.paredeEntre(g.position.x, g.position.z, ax, az)) { e.rota = null; return false; }
+    e.rotaT = (e.rotaT || 0) - dt;
+    if ((!e.rota || !e.rota.length || e.rotaT <= 0) && I._orcCaminho > 0) { I._orcCaminho--; e.rota = M.caminho(g.position.x, g.position.z, ax, az, Math.max(0.45, Math.min(1.2, def.r))) || []; e.rotaT = 1.4; }
+    if (!e.rota || !e.rota.length) return false;
+    let w = e.rota[0];
+    if (Math.hypot(w.x - g.position.x, w.z - g.position.z) < 0.9) { e.rota.shift(); if (!e.rota.length) return false; w = e.rota[0]; }
+    const a = Math.atan2(w.x - g.position.x, w.z - g.position.z);
+    g.rotation.y = turnTo(g.rotation.y, a, 8 * dt);
+    g.position.x += Math.sin(g.rotation.y) * vel * dt; g.position.z += Math.cos(g.rotation.y) * vel * dt;
+    return true;
+  }
   I.update = function (dt) {
     const P0 = OV.P, P = P0, alvos = I.alvos();
     if (I._pp && dt > 0) { P.vel = P.vel || { x: 0, z: 0 }; P.vel.x = (P.pos.x - I._pp.x) / dt; P.vel.z = (P.pos.z - I._pp.z) / dt; if (Math.hypot(P.vel.x, P.vel.z) > 20) P.vel.x = P.vel.z = 0; }
-    I._pp = { x: P.pos.x, z: P.pos.z };
+    I._pp = { x: P.pos.x, z: P.pos.z }; I._orcCaminho = 2; I.relogio += dt;
     atualizarProjeteis(dt); atualizarOndas(dt); atualizarChuvas(dt);
     const ousadia = OV.tempo && OV.tempo.ehNoite() && P.pos.x < 200 ? 1.3 : 1; // à noite os vícios avançam de mais longe
     I.lista.forEach(e => {
@@ -604,6 +641,7 @@
         else if (!acabouDeApanhar) desiste = ag === 'alta' ? (longe > LIMITE_PERSEGUE.alta * mult || casa > 140) : longe > LIMITE_PERSEGUE[ag] * mult;
         if (desiste) e.state = 'voltar';
         else if (playerGone) e.state = casa > 6 ? 'voltar' : 'idle';
+        else if (contornar(e, g, ax, az, d, dt, vel)) { /* v24: há uma parede no meio: contorna pelo caminho */ }
         else {
           g.rotation.y = turnTo(g.rotation.y, ang, 6 * dt);
           const ps = def.speed > 0 && def.dmg > 0 ? proximoPasso(e) : PASSOS.g; e.golpe = ps;

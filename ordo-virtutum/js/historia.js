@@ -216,6 +216,7 @@
   HI.prologo = function (qual, fim) {
     if (typeof qual === 'function' || qual == null) { fim = qual; qual = 'abertura'; }
     montarPrologo(); pl.qual = SEQ[qual] ? qual : 'abertura'; pl.lista = SEQ[pl.qual]; pl.i = 0; pl.fim = fim || null; pl.el.hidden = false; pl.last = 0;
+    if (document.pointerLockElement) document.exitPointerLock(); // v24: o cursor aparece para clicar em «Continuar»
     if (A.init) A.init();
     mostrarPainel(); pl.raf = requestAnimationFrame(quadro);
   };
@@ -313,7 +314,12 @@
   HI.telaLampadas = function () {
     if (!F().lampadas_reveladas) return `<div class="lp-vazio"><p>O Bispo só pediu que você descobrisse por que os sinos do vale se calaram.</p><p>Talvez o Padre Tomé, ou algum livro do mosteiro, saiba dizer mais.</p><button type="button" class="btn ghost" data-lp-prologo="abertura">Rever o prólogo</button></div>`;
     const n = HI.acesas();
+    // v24: as lâmpadas dos atos que ainda não chegaram ficam cobertas (nada de entregar o caminho)
+    const atoAberto = n => n <= 1 || !!F()['ato' + (n - 1) + '_fim'];
     const cards = HI.LAMPADAS.map(l => {
+      if (!atoAberto(l.ato) && !l.acesa()) return `<li class="lp coberta" aria-label="Lâmpada coberta">${svgLamp(false)}<div><b>Uma lâmpada coberta</b>
+        <small>Um véu de pano escuro cobre esta lâmpada.</small>
+        <span class="futuro">Ela se revela quando você chegar ao Ato ${['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][l.ato]}.</span></div></li>`;
       const ac = l.acesa(), conhecida = !l.futuro;
       return `<li class="lp ${ac ? 'acesa' : ''} ${l.futuro ? 'futura' : ''}">${svgLamp(ac)}<div><b>${esc(l.nome)}</b>
         <small>${esc(l.virtude)} contra a ${esc(l.pecado)}</small>
@@ -496,11 +502,24 @@
     }
   };
   // monta os nós de diálogo do sacrifício: 's' (o pedido) e 'n' (a recusa); ambos seguem para 'depois'
+  // v24: depois da renúncia (que continua sendo uma surpresa), o santo explica o que a graça faz
+  const EXPLICA = {
+    'Santo Antão': 'Esta é a Graça de Antão. Lá embaixo, na câmara do meio-dia, haverá um raio de sol que anda pelo chão. Enquanto você rezar dentro dele, nada vai ferir você, e a vida volta devagar. Quem se esconde na luz não é covarde: é sábio.',
+    'São Nicolau': 'Esta é a Graça de Nicolau. Na mesa do Senhor do Banquete, cada travessa vai se partir com um só golpe seu. As travessas é que o curam: sem elas, ele não come mais. É isso que o dar faz: tira o pão da boca do demônio.',
+    'São Lourenço': 'Esta é a Graça de Lourenço. Os cofres que protegem Mamom vão se abrir com um só golpe seu. Enquanto houver um cofre de pé, ele quase não sente as feridas: quebre-os primeiro.',
+    'Santo Agostinho': 'Esta é a Graça de Agostinho. Os espelhos do baile vão se quebrar com um golpe, e você vai sentir o Fascínio chegando de longe, a tempo de desviar os olhos.',
+    'São João Batista': 'Esta é a Graça de João. A luz que cair sobre a Pedra vai durar mais, para você ter tempo de correr até ela. E, se o Leviatã engolir você, a oração no ventre dele liberta depressa.',
+    'São Martinho de Tours': 'Esta é a Graça de Martinho. Quando Abadon provocar, a provocação vai passar mais depressa, e cada vez que você não revidar ele fica desarmado por mais tempo.',
+    'Moisés': 'Esta é a Graça de Moisés. Quando o Príncipe se exaltar, você terá mais tempo para se ajoelhar, e de joelhos você o derruba mais depressa.'
+  };
+  HI.EXPLICA_GRACA = EXPLICA;
   HI.nosSacrificio = function (santo, tipo, pedido, aoAceitar, depois, recusa) {
     const S = HI.SACRIFICIOS[tipo];
+    const exp = EXPLICA[santo];
     return {
+      ...(exp ? { gr: { quem: santo, txt: exp, prox: depois } } : {}),
       s: { quem: santo, txt: pedido, opc: [
-        { t: () => S.oferta(), ef: () => { const r = S.aplicar(); F()['sacrificio_' + tipo] = true; aoAceitar(); C().anel(0xffe6a8, 3, 1.0, 0.8); if (A.bell) { A.bell(392, 0.2); setTimeout(() => A.bell(587, 0.18), 260); } setTimeout(() => ui.toast(r), 400); if (OV.jogo) OV.jogo.salvar(); }, ir: depois },
+        { t: () => S.oferta(), ef: () => { const r = S.aplicar(); F()['sacrificio_' + tipo] = true; aoAceitar(); C().anel(0xffe6a8, 3, 1.0, 0.8); if (A.bell) { A.bell(392, 0.2); setTimeout(() => A.bell(587, 0.18), 260); } setTimeout(() => ui.toast(r), 400); if (OV.jogo) OV.jogo.salvar(); }, ir: exp ? 'gr' : depois },
         { t: 'Não posso oferecer isso.', ir: 'n' }] },
       n: { quem: santo, txt: recusa || 'Deus não força ninguém. Vá em paz: a luta será mais dura, mas você não estará só.', prox: depois }
     };

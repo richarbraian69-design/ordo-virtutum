@@ -113,7 +113,9 @@
     const d = new THREE.Object3D(), nm = new THREE.Matrix3(), c = new THREE.Color(), out = [];
     for (const [, p] of this.p) {
       const pos = new Float32Array(p.n * 3), nor = new Float32Array(p.n * 3), col = new Float32Array(p.n * 3); let k = 0;
+      const Hb = this.op.H, ancora = Hb ? [] : null; // v24: lembra onde cada peça pousou, para assentá-la de novo se o chão baixar
       for (const [mod, it] of p.l) {
+        if (ancora) ancora.push(it.x, it.z, Hb(it.x, it.z), k, mod.n);
         d.position.set(it.x, it.y, it.z); d.rotation.set(it.rx || 0, it.r || 0, it.rz || 0);
         const s = it.s || 1; d.scale.set(it.sx || s, it.sy || s, it.sz || it.sx || s); d.updateMatrix();
         const e = d.matrix.elements; nm.getNormalMatrix(d.matrix); const q = nm.elements;
@@ -134,11 +136,26 @@
       geo.computeBoundingSphere();
       const me = new THREE.Mesh(geo, VC); me.castShadow = !!this.op.sombra; me.receiveShadow = true; me.matrixAutoUpdate = false; me.updateMatrix();
       scene.add(me); out.push(me);
+      if (ancora) { me.userData.ancora = ancora; me.userData.Hb = Hb; LOTES_CHAO.push(me); }
     }
     this.p.clear();
     return out;
   };
   C.Lote = Lote;
+  // v24: depois que as masmorras e casas aplainam o terreno, as plantas descem (ou sobem) junto com o chão
+  const LOTES_CHAO = [];
+  C.reassentarChao = function () {
+    for (const me of LOTES_CHAO) {
+      const a = me.userData.ancora, H = me.userData.Hb, pos = me.geometry.attributes.position; let mudou = false;
+      for (let i = 0; i < a.length; i += 5) {
+        if (M.temPatamar && !M.temPatamar(a[i], a[i + 1])) continue;
+        const d = H(a[i], a[i + 1]) - a[i + 2]; if (Math.abs(d) < 0.02) continue;
+        for (let v = a[i + 3]; v < a[i + 3] + a[i + 4]; v++) pos.array[v * 3 + 1] += d;
+        a[i + 2] += d; mudou = true;
+      }
+      if (mudou) { pos.needsUpdate = true; me.geometry.computeBoundingSphere(); }
+    }
+  };
 
   /* ================= CASAS ================= */
   // textura de telhas (clara, multiplica a cor do telhado): fileiras de telhas desencontradas
@@ -510,7 +527,7 @@
       M.obstacles.push({ x: t.x, z: t.z, r: 0.35 * sc });
       if (E.copa) M.copas.push({ x: t.x, z: t.z, r: E.raio * sc, y0: y + E.base * sc * alt, y1: y + E.topo * sc * alt });
     });
-    const lote = new Lote({ sombra: true });
+    const lote = new Lote({ sombra: true, H });
     for (const nome in porEsp) {
       const E = ESPECIES[nome];
       const k = 'mod:' + nome; if (!geoEsp[k]) geoEsp[k] = modelo([{ geo: pegarGeo(nome, 'tronco'), cor: E.corTronco }, { geo: pegarGeo(nome, 'copa'), cor: null }, { geo: pegarGeo(nome, 'extra'), cor: E.corExtra }]);
@@ -589,7 +606,7 @@
     sortear(n.pedrinhas || 0, 0, (x, z) => { const s = 0.5 + r() * 1.3; L.pedrinha.push({ x, y: H(x, z), z, r: r() * 6, sx: s, sy: s * (0.6 + r() * 0.6), cor: r.um(pal.pedra), tom: 0.85 + r() * 0.3 }); });
     sortear(n.cogumelos || 0, 0, (x, z) => { if (op.floresta && !op.floresta(x, z)) return false; const cor = r.um(pal.cogumelo); for (let i = 0; i < 2 + r() * 4; i++) { const fx = x + (r() - 0.5) * 0.7, fz = z + (r() - 0.5) * 0.7, s = 0.7 + r() * 0.8; L.cogumelo.push({ x: fx, y: H(fx, fz) - 0.02, z: fz, r: r() * 6, s, cor }); } });
     sortear(n.samambaias || 0, 0.3, (x, z) => { if (op.floresta && !op.floresta(x, z)) return false; const s = 0.8 + r() * 0.8; L.samambaia.push({ x, y: H(x, z) - 0.02, z, r: r() * 6, sx: s, sy: s * (0.8 + r() * 0.5), cor: r.um([0x2a4a22, 0x34562a, 0x3a5a26]), tom: 0.9 + r() * 0.2 }); });
-    const lote = new Lote({ sombra: false });
+    const lote = new Lote({ sombra: false, H });
     for (const k in L) L[k].forEach(it => lote.por(GEO[k], it));
     lote.fazer();
     return L;

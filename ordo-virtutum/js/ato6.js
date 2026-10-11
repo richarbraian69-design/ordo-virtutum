@@ -306,6 +306,7 @@
   }
   function desafiar(primeira) {
     chefe.falando = true;
+    if (MS.memChefe && MS.memChefe.tem('abadon')) { chefe.falando = false; iniciarChefe(); return; } // v24: quem já lutou não revê a cena de entrada
     const fala = () => D.abrir(arv('Abadon', {
       a: { txt: primeira ? 'Eu sou Abadon, o Exterminador. Não preciso matar ninguém: eles se matam sozinhos, desde que cada um revide. Uma flecha, e mais três gerações de sangue. É tão fácil.' : 'Voltou? Ótimo. Quem volta para a briga já começou a gostar dela.', prox: 'b' },
       b: { quem: 'Anjo da Guarda', txt: 'Quando ele abrir os braços e provocar, com a aura vermelha, não revide: espere até a provocação passar. A paciência o desarma. Quem bate na hora errada dá de comer a ele.',
@@ -337,7 +338,7 @@
   function paciencia(e) {
     chefe.prov = null; chefe.provT = intervalo(); chefe.paciencia++;
     const gr = !!F().graca_martinho;
-    I.atordoar(e, gr ? 5 : 3.5); e.marca = gr ? 5 : 3.5; e.marcaF = 0.5;
+    I.atordoar(e, gr ? 5 : 3.5, true); e.marca = gr ? 5 : 3.5; e.marcaF = 0.5;
     if (chefe.paciencia <= 3) MS.ato('temperanca');
     P.hp = Math.min(P.D.maxHp, P.hp + P.D.maxHp * (gr ? 0.15 : 0.08));
     C().anel(0xffe6a8, 3.2, 0.9, 0.8); A.bell(523, 0.16); setTimeout(() => A.bell(659, 0.14), 200);
@@ -407,6 +408,7 @@
       z: { quem: 'Anjo da Guarda', txt: 'Está feito. O Padre Gregório espera na Igreja de São Martinho, do outro lado do rio. Hoje Rocaforte e Valverde vão comungar no mesmo altar.', ef: () => { MS.avancar('a6m5', 2); senhoresEmCasa(); J().salvar(); } }
     }));
   }
+  if (MS.missas) MS.missas.push({ nome: 'Igreja de São Martinho', pronta: () => MS.ativa('a6m5') && MS.etapa('a6m5') === 2, iniciar: () => missa6() });
   function missa6() {
     const f = F();
     const linhas = [
@@ -419,7 +421,7 @@
     if (MS.feita('a6s1')) linhas.push(['Irmã Firmina, a enfermeira', 'O hospital vai ficar vazio, se Deus quiser. Já estou com saudade dos resmungos dos meus soldados.']);
     linhas.push(['', 'Ao fim da Missa, todos vão em procissão até o Campo das Cinzas. Na Lanterna dos Mortos, pela primeira vez em três gerações, uma luz se acende para os que caíram dos dois lados: a Lâmpada da Paciência.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja de São Martinho', 'padreGregorio', linhas, () => {
       f.ato6_fim = true; MS.concluir('a6m5', f.marco_fim || 'campo');
       R.acenderLampada(true);
       [0, 600, 1200, 1800, 2400].forEach((t, i) => setTimeout(() => A.bell([220, 277, 330, 392, 440][i], 0.3), t));

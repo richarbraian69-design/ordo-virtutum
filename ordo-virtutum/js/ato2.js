@@ -107,7 +107,7 @@
   FO.glutao = { key: 'glutao', name: 'Glutão possuído', nivel: 6, build: makeGlutao, hp: 110, speed: 3.0, dmg: 11, windup: 0.6, recover: 0.8, range: 1.9, r: 0.55, height: 2.3, knock: 0.8, stagger: true, xp: 30, aggro: 9, leash: 18, liberta: true, moedas: [2, 5], status: 'gula' };
   FO.corvo = { key: 'corvo', name: 'Corvo da Fome', nivel: 6, build: makeCorvo, hp: 44, speed: 5.4, dmg: 8, windup: 0.32, recover: 0.55, range: 1.5, r: 0.35, height: 1.5, knock: 1.4, stagger: true, xp: 15, mundo: true, aggro: 14, leash: 26, voa: true, moedas: [1, 3], status: null,
     ia: e => { const f = Math.sin(e.ph * 4) * 0.7; e.armL.rotation.z = f; e.armR.rotation.z = -f; } };
-  FO.larva_gula = Object.assign({}, FO.larva, { key: 'larva_gula', name: 'Larva da Gula', nivel: 6, build: makeLarvaGula, hp: 55, dmg: 9, status: 'gula', xp: 22 });
+  FO.larva_gula = Object.assign({}, FO.larva, { key: 'larva_gula', name: 'Larva da Gula', nivel: 6, build: makeLarvaGula, hp: 55, dmg: 9, status: 'gula', xp: 22, speed: 2.7 }); // v24: mais rápida
   FO.travessa = { key: 'travessa', name: 'Travessa do Banquete', nivel: 9, build: makeTravessa, hp: 90, speed: 0, dmg: 0, windup: 9, recover: 1, range: 0, r: 0.65, height: 1.8, knock: 0, stagger: false, xp: 10, aggro: 0, leash: 99, fixo: true, status: null,
     quebra: () => !!F().graca_nicolau, ia: e => { e.state = 'idle'; e.g.rotation.y += 0.01; } };
   FO.senhor = { key: 'senhor', name: 'Senhor do Banquete', nivel: 10, build: makeSenhor, hp: 1400, speed: 2.7, dmg: 28, windup: 0.78, recover: 0.85, range: 3.0, r: 1.25, height: 4.5, knock: 0.1, stagger: false, xp: 350, aggro: 40, leash: 45, status: 'gula', chefe: true,
@@ -124,6 +124,7 @@
     PT.comida.forEach(m => { m.visible = !f.senhor_vencido; });
     visuais();
     resetarChefe();
+    if (!f.senhor_vencido && MS.ativa('a2m5') && MS.etapa('a2m5') === 1) st('a2m5').e = 0; // v24: a luta interrompida recomeça
   });
   function visuais() { const ok = MS.feita('a2s2'); PT.fogoLucia.visible = ok; PT.luzLucia.int = ok ? 1.3 : 0; }
   MS.ganchos.spawn.push(() => {
@@ -247,7 +248,9 @@
     const n = 3 + jj.onda - 1;
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2 + Math.random();
-      const e = I.spawn('corvo', true, W(-66 + Math.cos(a) * 7.5, 38 + Math.sin(a) * 6)); e.tag = 'jejum'; e.mundo = false;
+      // v24: os corvos do jejum são de outra cepa: famintos, fortes, e o último da terceira leva é um ancião
+      const vari = jj.onda === 3 && i === 0 ? 'elite' : jj.onda >= 2 && i % 2 ? 'forte' : undefined;
+      const e = I.spawn('corvo', true, W(-66 + Math.cos(a) * 7.5, 38 + Math.sin(a) * 6), { nivel: 8 + jj.onda, variante: vari }); e.tag = 'jejum'; e.mundo = false;
     }
   }
 
@@ -264,6 +267,7 @@
   function desafiar() {
     if (chefe.ativo || chefe.falando) return;
     chefe.falando = true; PT.sombraTrono(false);
+    if (MS.memChefe && MS.memChefe.tem('senhor')) { chefe.falando = false; iniciarChefe(); return; } // v24: quem já lutou não revê a cena de entrada
     const fala = () => D.abrir(arv('Senhor do Banquete', {
       a: { txt: 'Mais um convidado! Sente-se, coma. Aqui ninguém se levanta da mesa com fome... nem se levanta da mesa.', prox: 'b' },
       b: { quem: 'Anjo da Guarda', txt: () => 'É o demônio da gula. As travessas ao redor da praça o alimentam: quebre-as, e ele não se cura mais.' + (F().graca_nicolau ? ' A Graça de Nicolau está com você: um golpe basta para cada uma.' : ''),
@@ -320,7 +324,7 @@
   function tentacao(b) {
     D.abrir(arv('Senhor do Banquete', {
       a: { txt: 'Pare. Por que lutar com fome? Sente-se, prove só um pouco. Ninguém precisa saber, e você se levantará mais forte.', opc: [
-        { t: '"Nem só de pão vive o homem, mas de toda palavra que sai da boca de Deus."', ef: () => { F().tentacao = 'recusou'; MS.ato('temperanca'); I.atordoar(b, 2.5); }, ir: 'r' },
+        { t: '"Nem só de pão vive o homem, mas de toda palavra que sai da boca de Deus."', ef: () => { F().tentacao = 'recusou'; MS.ato('temperanca'); I.atordoar(b, 2.5, true); }, ir: 'r' },
         { t: 'Só um pouco...', ef: () => { F().tentacao = 'cedeu'; P.status.gula = 25; b.hp = Math.min(b.def.hp, b.hp + b.def.hp * 0.2); }, ir: 'c' }] },
       r: { quem: '', txt: 'O demônio recua, cuspindo. Por um instante, ele não sabe o que fazer com alguém que não tem fome dele.' },
       c: { quem: 'Anjo da Guarda', txt: 'Você provou, e a Gula pesa sobre você. Mas ainda é tempo: levante-se e lute. O Recolhimento purifica.' }
@@ -355,6 +359,7 @@
         depois: () => setTimeout(() => { const q = W(2.6, -26.5); M.figuras.barao.ir(q.x, q.z, 0.1); }, 1500) }
     }));
   }
+  if (MS.missas) MS.missas.push({ nome: 'Igreja de São Nicolau', pronta: () => MS.ativa('a2m5') && MS.etapa('a2m5') === 2, iniciar: () => missa2() });
   function missa2() {
     const f = F();
     const linhas = [
@@ -366,7 +371,7 @@
     if (MS.feita('a2s3')) linhas.push(['Tiago', 'Mestre Pedro disse que eu posso ser grumete no barco dele!']);
     linhas.push(['', 'Ao fim da Missa, todos sobem ao promontório. No alto do farol, uma chama nova se acende: a Lâmpada da Temperança volta a guiar os navios.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja de São Nicolau', 'gaspar', linhas, () => {
       f.ato2_fim = true; MS.concluir('a2m5', f.barao_fim || 'perdao');
       PT.acenderFarol(true);
       [0, 600, 1200, 1800, 2400].forEach((t, i) => setTimeout(() => A.bell([294, 370, 440, 370, 294][i], 0.3), t));

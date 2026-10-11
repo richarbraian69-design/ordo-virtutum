@@ -77,6 +77,10 @@
     setT($('nivelN'), pers.nivel + (pers.pontos > 0 ? ` · ${pers.pontos} ponto${pers.pontos > 1 ? 's' : ''} para distribuir (C)` : ''));
     let h = '';
     for (const k in P.status) h += `<div class="chip"><b>${OV.STATUS[k].label}</b> — ${OV.STATUS[k].desc}<span>${Math.ceil(P.status[k])}s</span></div>`;
+    // v24: quanto tempo o anjo ainda fica, e quando o pão e a água benta podem ser usados de novo
+    const OFi = OV.oficio, anjoT = OFi && OFi.anjoRestante ? OFi.anjoRestante() : 0;
+    if (anjoT > 0) h += `<div class="chip anjo"><b>Anjo da Guarda</b> — luta ao seu lado<span>${Math.ceil(anjoT)}s</span><i style="width:${(anjoT / OFi.anjoDur() * 100).toFixed(0)}%"></i></div>`;
+    [['pao', 'Pão'], ['agua', 'Água benta']].forEach(([k, n]) => { const c = P.cd['item_' + k] || 0; if (c > 0) h += `<div class="chip recarga"><b>${n}</b> — em recarga<span>${Math.ceil(c)}s</span></div>`; });
     if (h !== lastChips) { $('chips').innerHTML = h; lastChips = h; }
     const pb = $('prayBox');
     const orando = P.praying || P.oratT > 0;
@@ -360,7 +364,7 @@
     ['Andar e olhar', [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', 'Andar'], ['<kbd>Shift</kbd>', 'Segurar para correr (gasta um pouco de fôlego)'], ['<kbd>T</kbd>', 'Liga e desliga a corrida contínua'], ['Mouse', 'Girar a câmera'], ['<kbd>Tab</kbd>', 'Travar a câmera num vício']]],
     ['Combate', [['Clique esquerdo', 'Golpe leve'], ['Clique direito', 'Golpe pesado: gasta mais fôlego e às vezes atordoa os vícios comuns'], ['<kbd>Espaço</kbd>', 'Esquiva'], ['<kbd>Q</kbd>', 'Sinal da Cruz: no instante do golpe, apara e deixa o vício atordoado. Também rebate o que ele atira de longe']]],
     ['Orações e Fé', [['<kbd>1</kbd>', 'Ave-Maria: cura'], ['<kbd>2</kbd>', 'Oração a São Miguel: luz em área'], ['<kbd>R</kbd> segurar', 'Recolhimento: recupera Fé e vida e purifica a Ira, a Preguiça e a Gula'], ['<kbd>F</kbd> <kbd>G</kbd> <kbd>V</kbd> <kbd>B</kbd>', 'Habilidades da sua ordem, conforme o nível (veja na ficha, tecla C)']]],
-    ['Itens', [['<kbd>I</kbd>', 'Inventário e equipamentos'], ['<kbd>5</kbd> · <kbd>6</kbd>', 'Usar Pão abençoado · Água benta'], ['Sacerdotes', 'Abençoam os itens corrompidos que você carrega'], ['Capelas', 'O baú do peregrino é o mesmo em todas as capelas']]],
+    ['Itens', [['<kbd>I</kbd>', 'Inventário e equipamentos'], ['<kbd>5</kbd> · <kbd>6</kbd>', 'Usar Pão abençoado · Água benta'], ['Sacerdotes', 'Abençoam os itens corrompidos que você carrega'], ['Casa do Peregrino', 'O baú da casa é o mesmo em todas as regiões']]],
     ['Mapa e missões', [['<kbd>M</kbd>', 'Mapa: arraste para mover, use a roda do mouse para aproximar, clique num Oratório aceso para viajar'], ['<kbd>L</kbd>', 'Missões: escolha qual rastrear. A rastreada aparece no canto, no minimapa (roxo: principal; verde: secundária) e na bússola'], ['<kbd>C</kbd>', 'Ficha: virtudes, pontos para distribuir e o caminho da sua ordem'], ['<kbd>E</kbd>', 'Conversar, examinar, rezar']]],
     ['Oratórios', [['Rezar', 'Guarda o progresso e restaura vida e Fé. Os vícios do mundo voltam'], ['Num Oratório aceso', 'Também dá para descansar até o amanhecer ou velar até o anoitecer'], ['Morte', 'Você desperta no último Oratório em que rezou']]]
   ];

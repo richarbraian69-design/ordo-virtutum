@@ -104,7 +104,10 @@
       m.semeado = dia();
       CASAS.forEach((c, i) => { const e = m[i]; if (e && e.st === 'vencida') m[i] = { st: 'tomada', dia: dia() }; });
       const livres = CASAS.map((c, i) => i).filter(i => { const e = m[i]; return !e || (e.st === 'abencoada' && dia() - e.dia >= 2); });
-      const n = Math.min(livres.length, 1 + (Math.random() < 0.6 ? 1 : 0));
+      // v24: com a missão de Dona Inácia ativa, pousam sempre encostos suficientes para completar as três casas
+      const pend = CASAS.filter((c, i) => { const e = m[i]; return e && (e.st === 'tomada' || e.st === 'vencida'); }).length;
+      const falta = MS.ativa('v_meiodia') && MS.etapa('v_meiodia') === 0 ? Math.max(0, 3 - nBenz() - pend) : 0;
+      const n = Math.min(livres.length, Math.max(falta, 1 + (Math.random() < 0.6 ? 1 : 0)));
       for (let k = 0; k < n; k++) { const j = livres.splice((Math.random() * livres.length) | 0, 1)[0]; m[j] = { st: 'tomada', dia: dia() }; }
       if (regiao() === 'vale' && Math.hypot(P.pos.x, P.pos.z - 150) < 70) ui.toast('Meio-dia. Uma sombra dourada se assenta sobre os telhados da vila.');
       aplicarMeiodia();
@@ -113,15 +116,34 @@
     CASAS.forEach((c, i) => {
       const e = m[i], v = visual[i]; if (!e || e.st !== 'tomada') return;
       v.aura.material.opacity = 0.16 + 0.06 * Math.sin(t * 2 + i);
-      if (I.porTag('md_' + i).some(vivo)) return;
-      if (Math.hypot(P.pos.x - c.porta.x, P.pos.z - c.porta.z) < 15) {
-        tirarDeco(v);
-        const en = I.spawn('meiodiazinho', false, { x: c.porta.x, z: c.porta.z }, { nivel: 5 + Math.min(3, Math.floor(dia() / 3)) }); en.tag = 'md_' + i; en.mundo = false;
-        en.g.position.y = c.telhado; en.spawnT = 0; en.state = 'chase';
-        if (A.bell) A.bell(220, 0.12);
-      }
+      if (I.porTag('md_' + i).some(vivo) || v.desc) return;
+      if (Math.hypot(P.pos.x - c.porta.x, P.pos.z - c.porta.z) < 15) iniciarDescida(c, v);
     });
   }
+  // v24: o encosto não surge do nada nem despenca: primeiro um zumbido e um tremor no telhado, a sombra no chão,
+  // e depois ele plana, em arco, até a porta da casa
+  function iniciarDescida(c, v) {
+    decoEncosto(c, v); v.desc = { t: 0 };
+    if (A.bell) { A.bell(196, 0.12); setTimeout(() => A.bell(185, 0.1), 260); }
+    if (I.marca) I.marca(c.porta.x, c.porta.z, 1.3, 1.9, 0xffd060);
+    if (OV.jogo && OV.jogo.shake) OV.jogo.shake(0.12);
+    ui.toast('Um zumbido no telhado: o encosto desperta e desce.');
+  }
+  M.animados.push(dt => visual.forEach((v, i) => {
+    if (!v.desc) return;
+    const c = CASAS[i], d = v.deco; if (!d) { v.desc = null; return; }
+    v.desc.t += dt; const t = v.desc.t;
+    if (t < 0.9) { d.g.position.set(c.x + Math.sin(t * 55) * 0.07, c.telhado, c.z); d.g.scale.setScalar(1 + 0.12 * Math.abs(Math.sin(t * 10))); return; }
+    const k = Math.min(1, (t - 0.9) / 1.0), e = k * k * (3 - 2 * k), y1 = H(c.porta.x, c.porta.z) + 0.3;
+    d.g.scale.setScalar(1);
+    d.g.position.set(c.x + (c.porta.x - c.x) * e, c.telhado + (y1 - c.telhado) * e + Math.sin(k * Math.PI) * 1.6, c.z + (c.porta.z - c.z) * e);
+    d.g.rotation.y = c.rot + k * Math.PI * 2;
+    if (k < 1) return;
+    tirarDeco(v); v.desc = null;
+    const en = I.spawn('meiodiazinho', false, { x: c.porta.x, z: c.porta.z }, { nivel: 5 + Math.min(3, Math.floor(dia() / 3)) }); en.tag = 'md_' + i; en.mundo = false;
+    en.spawnT = 0; en.state = 'chase';
+    if (A.bell) A.bell(220, 0.12);
+  }));
   MS.ganchos.evento.push((tipo, x) => {
     if (tipo === 'vencido' && x && x.tag && /^md_\d+$/.test(x.tag)) {
       const i = +x.tag.slice(3); md()[i] = { st: 'vencida', dia: dia() }; aplicarMeiodia();
@@ -140,6 +162,14 @@
       F().md_benzidas = (F().md_benzidas || 0) + 1; P.pers.denarios = den() + 6;
       ui.toast(`A casa está abençoada. O encosto não volta mais aqui por um tempo. (+6 denários)`);
       if (MS.ativa('v_meiodia') && MS.etapa('v_meiodia') === 0 && (F().md_benzidas - (F().md_base || 0)) >= 3) { MS.avancar('v_meiodia', 1); setTimeout(() => ui.toast('Três casas abençoadas. Volte a Dona Inácia.'), 1500); }
+      else if (MS.ativa('v_meiodia') && MS.etapa('v_meiodia') === 0) {
+        // v24: faltam casas e não sobrou nenhum encosto: outro pousa logo num telhado vizinho (a missão nunca trava)
+        const m = md(), pend = CASAS.some((cc, k) => { const e = m[k]; return e && (e.st === 'tomada' || e.st === 'vencida'); });
+        if (!pend) {
+          const livres = CASAS.map((cc, k) => k).filter(k => { const e = m[k]; return !e || (e.st === 'abencoada' && dia() - e.dia >= 2); });
+          if (livres.length) { const j = livres.sort((a, b) => Math.hypot(CASAS[a].x - c.x, CASAS[a].z - c.z) - Math.hypot(CASAS[b].x - c.x, CASAS[b].z - c.z))[0]; m[j] = { st: 'tomada', dia: dia() }; setTimeout(() => ui.toast(`Ainda falta uma casa: outra sombra dourada pousa no telhado de ${CASAS[j].nome}.`), 1800); }
+        }
+      }
       aplicarMeiodia(); if (OV.jogo) OV.jogo.salvar();
     });
   });
@@ -273,7 +303,7 @@
         { t: 'Volte para o seu pai. Ele está esperando você.', ef: () => { F().prodigo = 'voltou'; MS.avancar('p_prodigo', 1); MS.ato('caridade'); }, ir: 'v' },
         { t: 'Junte dinheiro primeiro, para não voltar de mãos vazias.', ef: () => { F().prodigo = 'ficou'; MS.concluir('p_prodigo', 'ficou'); }, ir: 'f' },
         { t: 'O seu pai nunca vai perdoar o que você fez.', ef: () => { F().prodigo = 'desistiu'; MS.concluir('p_prodigo', 'desistiu'); }, ir: 'd' }] },
-      v: { quem: 'Rúben, o rapaz dos porcos', txt: 'Vou dizer a ele: «Pai, pequei contra o céu e contra ti. Já não mereço ser chamado teu filho. Trata-me como um dos teus empregados.» ...Você vai na frente? Conte a ele que eu estou chegando.', depois: () => { aplicarProdigo(); OV.jogo.salvar(); } },
+      v: { quem: 'Rúben, o rapaz dos porcos', txt: 'Vou dizer a ele: «Pai, pequei contra o céu e contra ti. Já não mereço ser chamado teu filho. Trata-me como um dos teus empregados.» ...Você vai na frente? Conte a ele que eu estou chegando.', depois: () => { partirDoPorto(); OV.jogo.salvar(); } },
       f: { quem: 'Rúben, o rapaz dos porcos', txt: 'É, faz sentido. Ninguém volta de mãos vazias. Mais uns meses, e eu volto de cabeça erguida.', depois: () => OV.jogo.salvar() },
       d: { quem: 'Rúben, o rapaz dos porcos', txt: '...Eu sabia. Bem, os porcos pelo menos não me julgam.', depois: () => OV.jogo.salvar() }
     } };
@@ -283,15 +313,10 @@
   const estal0 = MS.ARV.estalajadeiro;
   MS.ARV.estalajadeiro = function () {
     const pd = F().prodigo, q = 'Estalajadeiro';
+    if ((pd === 'voltou' || pd === 'voltou2') && !F().festa && reencontro) return linha(q, 'É ele! Olhe a estrada! É ele!');
     if ((pd === 'voltou' || pd === 'voltou2') && !F().festa) return { inicio: 'a', nos: {
       a: { quem: q, txt: 'O que você disse? O meu filho... está vindo? Do porto? Eu vi alguém na estrada, de longe, e pensei que eram os meus olhos cansados.', prox: 'b' },
-      b: { quem: '', txt: 'O velho larga o pano e sai correndo pela estrada. Pouco depois volta abraçado a um rapaz magro, sujo de lama, que chora sem conseguir falar.', prox: 'c' },
-      c: { quem: q, txt: 'Tragam a melhor túnica! Ponham um anel no dedo dele e sandálias nos pés! Matem o novilho gordo, vamos comer e festejar: este meu filho estava morto e voltou a viver, estava perdido e foi encontrado!', prox: 'd' },
-      d: { quem: q, txt: () => `E você, ${g('peregrino', 'peregrina')}, que me trouxe a notícia: fique com este anel. Era o meu, e eu pus outro no dedo dele. Hoje não falta nada nesta casa.`, ef: () => {
-        F().festa = true; darItem('anelPai', 1); P.pers.denarios = den() + 40; MS.ato('caridade');
-        if (MS.ativa('p_prodigo')) MS.concluir('p_prodigo', 'voltou'); if (MS.ativa('m_prodigo')) MS.concluir('m_prodigo', 'voltou');
-        setTimeout(() => ui.toast('Recebido: Anel do Pai e 40 denários.'), 1200); aplicarProdigo(); OV.jogo.salvar();
-      } }
+      b: { quem: '', txt: 'O velho larga o pano e corre para a porta. Lá longe, na estrada, vem vindo um rapaz magro, sujo de lama, devagar, de cabeça baixa.', depois: () => iniciarReencontro() }
     } };
     if (F().festa) return linha(q, 'O meu filho trabalha comigo agora. O irmão mais velho ainda resmunga um pouco, mas já se sentou à mesa com ele. Deus seja louvado.');
     if (pd === 'desistiu') return linha(q, 'Todo dia, no fim da tarde, eu olho a estrada do sul. Um dia ele aparece. Um pai nunca para de olhar a estrada.');
@@ -299,10 +324,64 @@
     return estal0 ? estal0() : linha(q, 'Bem-vindo à Estalagem do Peregrino. Pão quente e cama limpa, quando a vila voltar a viver.');
   };
   if (OV.vida && OV.vida.SINAL) { const s0 = OV.vida.SINAL.estalajadeiro; OV.vida.SINAL.estalajadeiro = () => ((F().prodigo === 'voltou' || F().prodigo === 'voltou2') && !F().festa) ? '?' : (s0 ? s0() : null); }
+  /* v24: o filho não aparece de repente na estalagem. Sai do porto andando pela estrada; quando o pai fica sabendo,
+     ele surge na estrada do vale e os dois caminham um para o outro, e o abraço acontece diante do peregrino. */
+  let saida = null, reencontro = null;
+  function partirDoPorto() {
+    const r = M.figuras.ruben; if (!r) return;
+    const e = OV.porto && OV.porto.ENTRADA; if (!e) { r.mostrar(false); return; }
+    r.ir(e.x, e.z, 0); saida = { t: 0 };
+  }
+  function iniciarReencontro() {
+    const r = M.figuras.ruben, pai = M.figuras.estalajadeiro, inn = M.interiores.find(c => c.nome === 'Estalagem do Peregrino');
+    if (!r || !pai || !inn) { festa(); return; }
+    const porta = inn.porta, fora = { x: porta.x - inn.x, z: porta.z - inn.z }, n = Math.hypot(fora.x, fora.z) || 1;
+    let ini = null;
+    for (const dist of [26, 22, 18, 14]) { const q = { x: porta.x + fora.x / n * dist, z: porta.z + fora.z / n * dist }; if (Math.hypot(q.x, q.z) < M.LIM - 4) { ini = q; break; } }
+    ini = ini || { x: porta.x + fora.x / n * 10, z: porta.z + fora.z / n * 10 };
+    const encontro = { x: porta.x + fora.x / n * 5, z: porta.z + fora.z / n * 5 };
+    r.mover(ini.x, ini.z, Math.atan2(encontro.x - ini.x, encontro.z - ini.z)); r.mostrar(true);
+    r.ir(encontro.x + fora.x / n * 0.9, encontro.z + fora.z / n * 0.9, Math.atan2(-fora.x, -fora.z));
+    pai.ir(encontro.x, encontro.z, Math.atan2(fora.x, fora.z));
+    reencontro = { t: 0, encontro };
+    ui.toast('O pai corre ao encontro do filho.');
+  }
+  function festa() {
+    reencontro = null;
+    const q = 'Estalajadeiro';
+    const linhas = [
+      ['', 'O pai chega primeiro. Antes que o rapaz termine o que ensaiou dizer, ele o abraça e o beija, com lama e tudo.'],
+      ['Rúben', 'Pai, pequei contra o céu e contra ti. Já não mereço ser chamado teu filho...'],
+      [q, 'Tragam a melhor túnica! Ponham um anel no dedo dele e sandálias nos pés! Matem o novilho gordo, vamos comer e festejar: este meu filho estava morto e voltou a viver, estava perdido e foi encontrado!'],
+      [q, `E você, ${g('peregrino', 'peregrina')}, que me trouxe a notícia: fique com este anel. Era o meu, e eu pus outro no dedo dele. Hoje não falta nada nesta casa.`]
+    ];
+    const fim = () => {
+      F().festa = true; darItem('anelPai', 1); P.pers.denarios = den() + 40; MS.ato('caridade');
+      if (MS.ativa('p_prodigo')) MS.concluir('p_prodigo', 'voltou'); if (MS.ativa('m_prodigo')) MS.concluir('m_prodigo', 'voltou');
+      setTimeout(() => ui.toast('Recebido: Anel do Pai e 40 denários.'), 1200);
+      // depois do abraço, os dois entram juntos na estalagem
+      const inn = M.interiores.find(c => c.nome === 'Estalagem do Peregrino'), r = M.figuras.ruben, pai = M.figuras.estalajadeiro;
+      if (inn && r) { const a = inn.W(1.6, 0.4); r.ir(a.x, a.z, inn.rot + Math.PI); }
+      if (inn && pai) { const b = inn.W(-1.2, 1); pai.ir(b.x, b.z, pai.rot0); }
+      OV.jogo.salvar();
+    };
+    const r = M.figuras.ruben, alvo = r ? new THREE.Vector3(r.x, H(r.x, r.z) + 1.4, r.z) : null;
+    if (alvo && OV.cenas) OV.cenas.contar(linhas, { alvo, raio: 4.5, altura: 1.6, olhar: 0.2, giro: 0.08 }, fim); else D.falas(linhas, fim);
+  }
+  M.animados.push(dt => {
+    if (!OV.jogo || !OV.jogo.ativo || !OV.jogo.ativo()) return;
+    const r = M.figuras.ruben; if (!r) return;
+    if (saida) { saida.t += dt; if (!r.destino || saida.t > 25) { saida = null; if (!F().festa) r.mostrar(false); } }
+    if (reencontro) {
+      reencontro.t += dt; const pai = M.figuras.estalajadeiro;
+      if ((pai && Math.hypot(pai.x - r.x, pai.z - r.z) < 2.2) || (!r.destino && pai && !pai.destino) || reencontro.t > 30) festa();
+    }
+  });
   function aplicarProdigo() {
     const r = M.figuras.ruben; if (!r) return;
     const pd = F().prodigo, inn = M.interiores.find(c => c.nome === 'Estalagem do Peregrino');
-    if ((pd === 'voltou' || pd === 'voltou2') && inn) { const q = inn.W(1.6, 0.4); r.mover(q.x, q.z, inn.rot + Math.PI); r.mostrar(!!F().festa || true); }
+    if ((pd === 'voltou' || pd === 'voltou2') && !F().festa) { if (!saida && !reencontro) r.mostrar(false); }
+    else if ((pd === 'voltou' || pd === 'voltou2') && inn) { const q = inn.W(1.6, 0.4); r.mover(q.x, q.z, inn.rot + Math.PI); r.mostrar(true); }
     else if (pd === 'ficou' && F().ato2_fim) r.mostrar(false);
     else { r.mover(r.x0, r.z0, r.rot0); r.mostrar(true); }
   }
@@ -329,10 +408,11 @@
      4. O BARCO DE MESTRE PEDRO E A ROCHA DO PRUDENTE
      =================================================================== */
   const ILHA = { x: 66, z: 803, r: 10 };
+  let viagem = null; // v24: declarada antes, porque o limite da costa precisa saber se o barco está no mar
   if (PT) {
     const alt0 = PT.altura, lim0 = PT.limitar;
     PT.altura = function (x, z) { const d = Math.hypot(x - ILHA.x, z - ILHA.z); if (d < ILHA.r + 1) return 1.7 + 0.5 * Math.max(0, 1 - (d / ILHA.r) ** 2) - Math.max(0, d - ILHA.r) * 4; return alt0(x, z); };
-    PT.limitar = function (p, r) { const d = Math.hypot(p.x - ILHA.x, p.z - ILHA.z); if (d < ILHA.r + 3) { const lim = ILHA.r - 0.6; if (d > lim) { p.x = ILHA.x + (p.x - ILHA.x) / d * lim; p.z = ILHA.z + (p.z - ILHA.z) / d * lim; } return; } return lim0(p, r); };
+    PT.limitar = function (p, r) { if (viagem) return; const d = Math.hypot(p.x - ILHA.x, p.z - ILHA.z); if (d < ILHA.r + 3) { const lim = ILHA.r - 0.6; if (d > lim) { p.x = ILHA.x + (p.x - ILHA.x) / d * lim; p.z = ILHA.z + (p.z - ILHA.z) / d * lim; } return; } return lim0(p, r); };
     const gr = new THREE.Group(); gr.position.set(ILHA.x, 0, ILHA.z); scene.add(gr);
     const rocha = M.MAT.rock, escura = sm(0x4a4440, { roughness: 1 });
     const base = mesh(new THREE.CylinderGeometry(ILHA.r, ILHA.r + 2.4, 7, 14), escura, 0, -1.4, 0); gr.add(base);
@@ -351,13 +431,21 @@
   }
   // a viagem de barco, com a câmera de cena
   const barcoMar = AJ ? AJ.modeloBarco() : new THREE.Group(); barcoMar.visible = false; scene.add(barcoMar);
-  let viagem = null;
   const CAIS = { x: 21, z: 779 }, ILHA_CAIS = { x: ILHA.x, z: ILHA.z - ILHA.r - 2.4 };
   function navegar(de, para, depois) {
     if (viagem) return;
-    viagem = { t: 0, dur: 6.5, de, para, depois };
+    if (P.montado) desmontar();
+    if (D.aberto) D.fechar();
+    viagem = { t: 0, dur: 7.5, de, para, depois };
+    C().resetAcoes(); P.pos.set(de.x, -0.2, de.z);
+    barcoMar.position.set(de.x, -0.35, de.z); barcoMar.rotation.set(0, Math.atan2(para.x - de.x, para.z - de.z), 0);
     barcoMar.visible = true; if (AJ) AJ.navegando = true; P.travado = true;
-    if (OV.cenas) OV.cenas.iniciar({ alvo: () => new THREE.Vector3(barcoMar.position.x, 0.5, barcoMar.position.z), raio: 11, altura: 4.5, giro: 0.1, olhar: 0.6, barco: true });
+    // a câmera vai ao lado do barco, do lado contrário à rocha, sem girar: nunca entra nas pedras
+    const rumo = Math.atan2(para.x - de.x, para.z - de.z);
+    const longe = a => { let m = 1e9; for (const q of [de, para]) { const cx = q.x + Math.sin(a) * 12, cz = q.z + Math.cos(a) * 12; m = Math.min(m, Math.hypot(cx - ILHA.x, cz - ILHA.z)); } return m; };
+    const ang0 = [rumo + Math.PI * 0.62, rumo - Math.PI * 0.62].sort((a, b) => longe(b) - longe(a))[0];
+    if (OV.cenas) OV.cenas.iniciar({ alvo: () => new THREE.Vector3(barcoMar.position.x, 0.5, barcoMar.position.z), raio: 12, altura: 5, giro: 0, ang0, olhar: 0.8, barco: true });
+    if (ui.clarao) ui.clarao('#000000');
     if (A.bell) A.bell(330, 0.08);
   }
   M.animados.push(dt => {
@@ -383,7 +471,7 @@
     if (!MS.feita('a2s1')) return pedro0 ? pedro0() : null;
     return { inicio: 'a', nos: {
       a: { quem: 'Mestre Pedro', txt: 'As redes estão limpas, e o barco é seu quando precisar. Para onde?', opc: [
-        { t: 'Para a Rocha do Prudente, no mar.', ef: () => { P.pos.set(CAIS.x, P.pos.y, CAIS.z); navegar(CAIS, ILHA_CAIS, () => { C().posicionar(ILHA_CAIS.x, ILHA_CAIS.z + 3.4, 0); OV.cam.yaw = Math.PI; if (!F().rocha_visitada) { F().rocha_visitada = true; ui.toast('Uma casa pequena no alto da rocha. As ondas batem, e ela nem treme.'); } }); } },
+        { t: 'Para a Rocha do Prudente, no mar.', ef: () => setTimeout(() => navegar(CAIS, ILHA_CAIS, () => { C().posicionar(ILHA_CAIS.x, ILHA_CAIS.z + 4.6, 0); OV.cam.yaw = Math.PI; if (!F().rocha_visitada) { F().rocha_visitada = true; ui.toast('Uma casa pequena no alto da rocha. As ondas batem, e ela nem treme.'); } }), 250) },
         { t: 'Para o Vale de Santa Sabina, subindo o Rio Lento.', ef: () => setTimeout(viajarVale, 200) },
         { t: 'Para o mar aberto.', ir: 'm' },
         { t: 'Conte da rocha no mar.', ir: 'r' },
@@ -411,17 +499,18 @@
     const n = nivelAfina(), r = AFINA[n], MATN = OF ? OF.MAT : {};
     const custo = r ? [`${r.den} denários`].concat(Object.keys(r.mats).map(k => `${r.mats[k]} ${MATN[k][0]}`)).join(', ') : '';
     const falta = r ? Object.keys(r.mats).filter(k => OF.qtd(k) < r.mats[k]).map(k => MATN[k][0]).concat(den() < r.den ? ['denários'] : []) : [];
-    return { inicio: 'a', nos: {
-      a: { quem: 'Eliaquim', txt: () => F().eliaquim_ouviu ? (n >= 3 ? 'As suas armas e ferramentas estão afinadas como eu nunca afinei as minhas. Vá com Deus, e construa na rocha.' : `Quer que eu afine as suas armas e ferramentas? O afinamento ${['primeiro', 'segundo', 'terceiro'][n]} pede: ${custo}.`) : 'Você atravessou o mar só para ver um velho numa pedra? Sente-se. Vou contar por que moro aqui.', prox: () => F().eliaquim_ouviu ? null : 'p', opc: F().eliaquim_ouviu && n < 3 ? [
-        { t: `Afinar as armas e ferramentas (grau ${n + 1} de 3).`, cond: () => !falta.length, motivo: () => 'falta: ' + falta.join(', '), ef: () => {
+    return { inicio: F().eliaquim_ouviu ? 'o' : 'a', nos: {
+      a: { quem: 'Eliaquim', txt: 'Você atravessou o mar só para ver um velho numa pedra? Sente-se. Vou contar por que moro aqui.', prox: 'p' },
+      o: { quem: 'Eliaquim', txt: () => n >= 3 ? 'As suas armas e ferramentas estão afinadas como eu nunca afinei as minhas. Vá com Deus, e construa na rocha.' : `Quer que eu afine as suas armas e ferramentas? O afinamento ${['primeiro', 'segundo', 'terceiro'][n]} pede: ${custo}.`, opc: [
+        { t: `Afinar as armas e ferramentas (grau ${n + 1} de 3).`, mostrar: () => n < 3, cond: () => !falta.length, motivo: () => 'falta: ' + falta.join(', '), ef: () => {
           P.pers.denarios = den() - r.den; for (const k in r.mats) OF.tirar(k, r.mats[k]);
           F().afinacao = n + 1; C().anel(0xffe6a8, 2.4, 0.8, 0.7); if (A.bell) A.bell(784, 0.14);
           setTimeout(() => ui.toast(`Afinação ${n + 1}: todas as suas armas ferem ${8 * (n + 1)}% a mais, e a vara e a picareta respondem melhor.`), 500); OV.jogo.salvar();
         }, ir: 'f' },
-        { t: 'Que materiais servem?', ir: 'm' }, { t: 'Só vim ouvir o mar.' }] : null },
+        { t: 'Que materiais servem?', mostrar: () => n < 3, ir: 'm' }, { t: 'Conte de novo a sua história.', ir: 'p' }, { t: 'Só vim ouvir o mar.' }] },
       p: { quem: 'Eliaquim', txt: '«Todo aquele que ouve estas minhas palavras e as põe em prática será como o homem prudente que construiu a sua casa sobre a rocha. Caiu a chuva, vieram as enchentes, sopraram os ventos e investiram contra aquela casa; mas ela não caiu, porque estava fundada na rocha.»', prox: 'q' },
-      q: { quem: 'Eliaquim', txt: 'Todos construíram na areia. Eu cavei. Levei três anos para chegar à pedra, e riam de mim. Na grande tempestade, a minha foi a única casa que ficou. Desde então afino ferramentas: quem constrói direito, começa pela ferramenta direita.', ef: () => { F().eliaquim_ouviu = true; OV.jogo.salvar(); }, prox: 'a' },
-      m: { quem: 'Eliaquim', txt: 'Carapaças e banha da gula, aqui do porto, para começar. Depois, corações de golem e élitros de ouro das minas. Por último, cacos de espelho e plumas de pavão da Corte, e o olho do basilisco que vive no mausoléu dos duques. A rocha não tem pressa.', prox: 'a' },
+      q: { quem: 'Eliaquim', txt: 'Todos construíram na areia. Eu cavei. Levei três anos para chegar à pedra. Os outros riam: «Olhem o Eliaquim, cavando o mar!» E eu cavava. Na grande tempestade, a minha foi a única casa que ficou. Desde então afino ferramentas: quem constrói direito, começa pela ferramenta direita.', ef: () => { F().eliaquim_ouviu = true; OV.jogo.salvar(); }, prox: 'o' },
+      m: { quem: 'Eliaquim', txt: 'Carapaças e banha da gula, aqui do porto, para começar. Depois, corações de golem e élitros de ouro das minas. Por último, cacos de espelho e plumas de pavão da Corte, e o olho do basilisco que vive no mausoléu dos duques. A rocha não tem pressa.', prox: 'o' },
       f: { quem: 'Eliaquim', txt: 'Pronto. Ferramenta afinada não força a mão de quem trabalha. Volte quando quiser mais.' }
     } };
   };
@@ -459,15 +548,46 @@
       ['Diário do eremita', '«E vi o mar. Lá embaixo, no abismo, o Leviatã guarda no ventre o que engoliu. Como Jonas, alguém terá de atravessar dentro do peixe. Que Deus mande essa pessoa. Eu fico aqui, rezando por ela.»', { verso: true }]
     ], () => { F().lore_sinai = true; F().lore_leviata = true; }));
     BI.dentroGruta = dentro;
+    // v24: a lamparina que nunca se apagou e a cruz de ferro do eremita (o achado que revela a origem de Mamom)
+    const lg = M.grupo(GRUTA.x, GRUTA.z, GRUTA.rot);
+    const pedraL = mesh(new THREE.DodecahedronGeometry(0.45, 0), rocha, -1.0, 0.25, -0.1); lg.add(pedraL);
+    lg.add(mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.1, 8), sm(0x8a5a3a), -1.0, 0.68, -0.1));
+    const chama = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 6), M.MAT.flame); chama.position.set(-1.0, 0.82, -0.1); lg.add(chama); M.flames.push(chama);
+    const pedraC = mesh(new THREE.BoxGeometry(0.8, 0.35, 0.5), rocha, 0.4, 0.17, 0.05); lg.add(pedraC);
+    const cruz = new THREE.Group(); cruz.position.set(0.4, 0.36, 0.05); cruz.rotation.set(-1.45, 0, 0.3); lg.add(cruz);
+    cruz.add(mesh(new THREE.BoxGeometry(0.07, 0.6, 0.05), M.MAT.iron, 0, 0, 0)); cruz.add(mesh(new THREE.BoxGeometry(0.36, 0.07, 0.05), M.MAT.iron, 0, 0.12, 0));
+    { const q = W(-1.0, -0.1); M.emissor(q.x, H(q.x, q.z) + 0.9, q.z, 0.8, 6, 0xffb060); }
+    BI.gruta.cruz = cruz;
+    const pc = W(0.4, 0.6);
+    M.interativo(pc.x, pc.z, 1.8, () => F().gruta_aberta && !F().cruz_eremita ? 'Olhar a parede riscada e a cruz de ferro' : null, () => revelarMamom());
+  }
+  function revelarMamom() {
+    if (F().cruz_eremita) return;
+    const W = BI.gruta.W, a = W(0, -0.4), y = H(a.x, a.z);
+    const mamomVencido = MS.feita('a3m5') || !!F().mamom_vencido;
+    OV.cenas.contar([
+      ['', 'A poeira baixa. No fundo da gruta, uma lamparina de barro ainda arde. Ninguém entra aqui há quarenta anos.'],
+      ['Anjo da Guarda', 'Essa chama não devia estar acesa. Alguém continua rezando por ela, lá do Céu.'],
+      ['', 'Na parede, riscado com ponta de ferro, um desenho: um homem de picareta ajoelhado diante de um monte de moedas que tem olhos. Embaixo, um nome: Anselmo de Valdouro.'],
+      ['Diário do eremita', '«Fui eu quem achou o primeiro veio de ouro de Valdouro. Contava as pepitas de noite, à luz da vela, e uma voz contava comigo. Dizia: guarda, guarda, guarda. Era Mamom. Ele não tinha corpo. O corpo, fui eu que dei a ele, com cada moeda que não dei a ninguém.»', { verso: true }],
+      ['Diário do eremita', '«Na noite em que o meu vizinho morreu de fome à minha porta, larguei tudo. Fundi a picareta numa cruz e subi o vale. Aprendi tarde o que Mamom esconde: ele só come o que se guarda. O que se dá, ele não consegue tocar. "Não podeis servir a Deus e a Mamom."»', { verso: true }],
+      ['', 'Ao pé do desenho, sobre uma pedra lisa, a cruz de ferro. É pesada e áspera, e está morna, como se alguém a tivesse segurado agora mesmo.'],
+      ['Anjo da Guarda', mamomVencido ? 'Você já venceu Mamom nas minas. Mas ele volta sempre que alguém guarda demais. Leve a cruz: ela lembra de onde ele veio.' : 'Era isso que faltava saber. Mamom nasceu da avareza de um homem, e é dando que se vence. Leve a cruz para as minas.']
+    ], { alvo: new THREE.Vector3(a.x, y + 0.8, a.z), raio: 4.6, altura: 1.4, olhar: 0, giro: 0.04, ang0: GRUTA.rot + 0.25 }, () => {
+      F().cruz_eremita = true; F().lore_mamom = true; if (BI.gruta.cruz) BI.gruta.cruz.visible = false;
+      darItem('cruzEremita', 1, 'Relíquia: Cruz de ferro do Eremita. Equipe-a no espaço do Santo, no inventário (I): a Avareza dura metade do tempo, e você fere 25% a mais os vícios da avareza.');
+      C().anel(0xffd890, 2.2, 0.9, 0.8); if (A.bell) A.bell(659, 0.16);
+      OV.jogo.salvar();
+    });
   }
   function abrirGruta() {
     F().gruta_aberta = true; P.travado = true;
     const g0 = BI.gruta.ent; let t = 0;
     for (let i = 0; i < 6; i++) setTimeout(() => { if (A.hit) A.hit(); OV.jogo.shake(0.25); C().faisca(g0.position.x + (Math.random() - 0.5) * 2, g0.position.y + 1, g0.position.z + (Math.random() - 0.5) * 2, 0xc8b89a); }, i * 330);
     C().efeito([], 2.4, p => { t = p; g0.children.forEach((r, i) => { r.position.y = (0.4 + Math.floor(i / 4) * 0.8) * (1 - p) - p * 0.3; r.position.x += (i % 2 ? 1 : -1) * 0.02; }); if (p >= 0.99) { g0.visible = false; } });
-    setTimeout(() => { BI.gruta.cxEnt.ativa = false; P.travado = false; ui.toast('As pedras rolam para o lado. Lá dentro, um baú antigo e um livro aberto sobre uma pedra.'); OV.jogo.salvar(); }, 2500);
+    setTimeout(() => { BI.gruta.cxEnt.ativa = false; P.travado = false; OV.jogo.salvar(); revelarMamom(); }, 2500);
   }
-  MS.ganchos.aplicar.push(() => { if (BI.gruta) { BI.gruta.ent.visible = !F().gruta_aberta; BI.gruta.cxEnt.ativa = !F().gruta_aberta; } });
+  MS.ganchos.aplicar.push(() => { if (BI.gruta) { BI.gruta.ent.visible = !F().gruta_aberta; BI.gruta.cxEnt.ativa = !F().gruta_aberta; if (BI.gruta.cruz) BI.gruta.cruz.visible = !F().cruz_eremita; } });
   // a picareta vem das minas (Ato III); a vara de pesca, da Corte (Ato IV)
   const concluir0 = MS.concluir;
   MS.concluir = function (id, r) {
@@ -530,8 +650,8 @@
      7. ANIMAIS: o jumentinho, o cavalo, o cachorro e o pintassilgo
      =================================================================== */
   const ANIMAIS = {
-    jumento: { nome: 'Jumentinho', preco: 100, vel: 1.45, alt: 0.72, montaria: true, cor: 0x7a6a5a, esc: 0.9 },
-    cavalo: { nome: 'Cavalo', preco: 280, vel: 1.9, alt: 1.05, montaria: true, cor: 0x4a2a1a, esc: 1.2 },
+    jumento: { nome: 'Jumentinho', preco: 260, vel: 1.22, alt: 0.72, montaria: true, cor: 0x7a6a5a, esc: 0.9 },
+    cavalo: { nome: 'Cavalo', preco: 600, vel: 1.55, alt: 1.05, montaria: true, cor: 0x4a2a1a, esc: 1.2 },
     cachorro: { nome: 'Cachorro', preco: 70 },
     passaro: { nome: 'Pintassilgo', preco: 50 }
   };

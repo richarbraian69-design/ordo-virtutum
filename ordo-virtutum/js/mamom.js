@@ -26,6 +26,11 @@
       // a Grande Cava: uma cratera de mineração a céu aberto, com o fundo plano
       const d = Math.hypot(lx - CAVA.x, lz - CAVA.z);
       if (d < CAVA.r) h -= CAVA.fundo * (1 - smooth(16, CAVA.r, d));
+      // v24: a estrada da serra entra por um desfiladeiro em rampa suave (antes, a chegada ficava num buraco cercado de encosta)
+      if (lz > 104) {
+        const w = (1 - smooth(9, 20, Math.abs(lx))) * smooth(104, 120, lz);
+        if (w > 0) { const rampa = 2.6 + 1.6 * smooth(118, 158, lz); h = h * (1 - w) + rampa * w; }
+      }
       return h;
     },
     planos: [

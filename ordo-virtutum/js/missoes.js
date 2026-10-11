@@ -97,11 +97,34 @@
     M.rodaGirando(!!f.roda_solta);
     M.lampada(!!f.ato1_fim);
     CR.resetarChefe();
+    if (!f.chefe_resolvido && MS.ativa('m5') && MS.etapa('m5') === 2) st('m5').e = 1; // v24: a luta interrompida recomeça (antes, o chefe sumia)
     MS.ganchos.aplicar.forEach(fn => fn());
     const PAS = (OV.vida && OV.vida.PASSEIO) || {};
     Object.entries(fig).forEach(([id, x]) => { if (x.rodada !== M.rodadaFig && !PAS[id] && !x.op.santo) x.ir(x.x0, x.z0, x.rot0); });
   }
   MS.aplicarMundo = () => aplicarMundo();
+  /* v24: a memória do chefe. Quem cai na luta volta e encontra o chefe ferido como o deixou (com um fôlego a mais),
+     sem a cena de entrada de novo. Vale para todos os chefões. */
+  const vivoE = e => e.state !== 'dead' && e.state !== 'liberto' && !e.removed;
+  MS.memChefe = {
+    tem: k => !!(F().memChefe && F().memChefe[k]),
+    ler: k => F().memChefe && F().memChefe[k],
+    guardar(k, e, extra) { const f = F(); f.memChefe = f.memChefe || {}; f.memChefe[k] = Object.assign({ hp: Math.max(0.12, e.hp / e.def.hp) }, extra || {}); },
+    limpar(k) { if (F().memChefe) delete F().memChefe[k]; }
+  };
+  MS.guardarChefes = () => I.lista.forEach(e => { if (e.def.chefe && vivoE(e) && e.hp < e.def.hp) MS.memChefe.guardar(e.def.key, e); });
+  // ao surgir de novo, o chefe traz as feridas da última luta
+  const spawn0 = I.spawn;
+  I.spawn = function (tipo) {
+    const e = spawn0.apply(I, arguments);
+    const m = e && e.def.chefe && MS.memChefe.ler(e.def.key);
+    if (m) { e.hp = Math.min(e.def.hp, Math.round(e.def.hp * Math.min(1, m.hp + 0.08))); setTimeout(() => ui.toast(`${e.def.name} ainda traz as feridas da última luta.`), 900); }
+    return e;
+  };
+  MS.ganchos.evento.push((tipo, x) => {
+    if ((tipo === 'vencido' || tipo === 'liberto') && x && x.def && x.def.chefe) { MS.memChefe.limpar(x.def.key); if (x.def.key === 'abade') MS.memChefe.limpar('meiodia'); }
+    return false;
+  });
   const tagRemove = tag => { I.porTag(tag).forEach(e => { if (!e.removed) { M.scene.remove(e.g); e.lab.el.remove(); e.removed = true; } }); I.lista = I.lista.filter(e => e.tag !== tag); };
   MS.tagRemove = tagRemove;
   function spawnQuest() {
@@ -311,6 +334,28 @@
     setTimeout(() => D.falas([['Anjo da Guarda', F().abade_livre ? 'O Abade está livre. Ele subirá para a Missa. Vá também: a igreja abacial espera por você.' : 'Está feito. A cripta está selada. Suba e vá à igreja abacial: o vale espera pela Missa.']]), 2600);
     J().salvar();
   }
+  /* v24: a Missa de cada ato acontece DENTRO da igreja: o peregrino entra e fica num banco do meio, o sacerdote vai
+     ao altar, e a câmera mostra a nave, de costas para a porta. */
+  MS.missaDentro = function (nomeIgreja, padreId, linhas, fim) {
+    const ig = (M.interiores || []).find(c => c.nome === nomeIgreja);
+    if (!ig) { D.falas(linhas, fim); return; }
+    const vira = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
+    const altar = ig.W(0, -ig.hd + 1.6), banco = ig.W(-1.0, Math.min(ig.hd * 0.3, ig.hd - 2.2));
+    OV.combate.posicionar(banco.x, banco.z, vira(banco, altar)); if (OV.cam) OV.cam.yaw = P.facing + Math.PI; J().mudouLugar();
+    const p = padreId && M.figuras[padreId];
+    if (p) { p.destino = null; p.mostrar(true); const q = ig.W(0, -ig.hd + 2.9); p.mover(q.x, q.z, vira(q, banco)); }
+    const meio = ig.W(0, -ig.hd * 0.3), y = M.altura(ig.x, ig.z) + 1.6;
+    const cam = { alvo: new THREE.Vector3(meio.x, y, meio.z), raio: Math.max(2.6, Math.min(ig.hd * 0.9, ig.hd - 1.2)), altura: 1.8, olhar: 0.5, giro: 0.02, ang0: ig.rot + 0.18 };
+    if (OV.cenas && OV.cenas.contar) OV.cenas.contar(linhas, cam, fim); else D.falas(linhas, fim);
+  };
+  // v24: quem entra na igreja na hora da Missa não precisa achar a porta de novo: a Missa começa lá dentro
+  MS.missas = [];
+  MS.ganchos.update.push(() => {
+    if (!MS.missas.length || D.aberto || P.dead || !J() || !J().ativo || !J().ativo() || !M.interiorDe) return;
+    const c = M.interiorDe(P.pos.x, P.pos.z); if (!c || !c.nome) return;
+    for (const m of MS.missas) if (m.nome === c.nome && !m.rodando && m.pronta()) { m.rodando = true; setTimeout(() => { m.rodando = false; }, 5000); m.iniciar(); return; }
+  });
+  MS.missas.push({ nome: 'Igreja abacial', pronta: () => MS.ativa('m5') && MS.etapa('m5') === 3, iniciar: () => missa() });
   function missa() {
     const f = F();
     const linhas = [
@@ -322,7 +367,7 @@
     if (f.afonso_livre) linhas.push(['Irmão Afonso', 'Eu estava perdido na ira, e hoje canto as matinas de novo.']);
     linhas.push(['', 'No momento da consagração, a Lâmpada da Diligência volta a arder sobre o altar. O silêncio do vale termina.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja abacial', 'tome', linhas, () => {
       f.ato1_fim = true; MS.concluir('m5', f.abade_livre ? 'libertado' : 'selado');
       M.lampada(true); M.figuras.abade.mostrar(!!f.abade_livre);
       [0, 600, 1200, 1800, 2400].forEach((t, i) => setTimeout(() => A.bell([262, 330, 392, 330, 262][i], 0.3), t));
@@ -567,8 +612,9 @@
     MS.ganchos.update.forEach(fn => fn(dt));
     if (P.pos.x > 200) {
       CR.update(dt);
-      if (P.pos.z < -24.5 && !CR.iniciado && !F().chefe_resolvido && MS.ativa('m5') && MS.etapa('m5') === 1) {
-        MS.avancar('m5', 2); CR.iniciado = true;
+      if (P.pos.z < -24.5 && !CR.iniciado && !F().chefe_resolvido && !P.dead && !D.aberto && MS.ativa('m5') && (MS.etapa('m5') === 1 || MS.etapa('m5') === 2)) {
+        if (MS.etapa('m5') === 1) MS.avancar('m5', 2); CR.iniciado = true;
+        if (MS.memChefe.tem('meiodia') || MS.memChefe.tem('abade')) { CR.iniciado = false; CR.iniciarChefe(); return; }
         const anjo = () => D.falas([['Anjo da Guarda', 'É ele: o demônio do meio-dia. Não pare, não desista. Quando precisar rezar, faça-o dentro da luz.']], () => { CR.iniciado = false; CR.iniciarChefe(); });
         if (OV.cenas) OV.cenas.poema('meiodia', { pos: { x: 300, z: (CR.CZ || -38) - 6 }, raio: 7.5, altura: 2.2 }, anjo); else anjo();
       }

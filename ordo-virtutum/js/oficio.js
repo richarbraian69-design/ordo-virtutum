@@ -48,7 +48,8 @@
     const ch = chefe ? 1 : d.variante === 'elite' ? 1 : d.variante === 'forte' ? 0.45 : 0.2;
     if (Math.random() < ch) OF.dar(k, chefe ? 1 : (d.variante === 'elite' ? 2 : 1));
     // os chefões principais também deixam um pergaminho
-    if (chefe && ['meiodia', 'senhor', 'mamom', 'asmodeu', 'leviata', 'abadon', 'principe'].includes(d.key)) setTimeout(() => darPergaminho(), 1200);
+    // v24: só às vezes (o pergaminho ficou raro de verdade)
+    if (chefe && ['senhor', 'mamom', 'asmodeu', 'leviata', 'abadon', 'principe'].includes(d.key) && Math.random() < 0.3) setTimeout(() => darPergaminho(), 1200);
   };
 
   /* ===================================================================
@@ -77,7 +78,7 @@
     OV.ITENS[`arma_${tipo}_${n + 1}`] = { nome, slot: 'arma', armaTipo: tipo, guilda: true, forjada: true, descr: GRAUS[n].descr + ' Só para quem luta com essa arma.', mods: GRAUS[n].mods };
   });
   OV.ITENS.armaduraMiguel = { nome: 'Armadura de São Miguel', slot: 'veste', guilda: true, forjada: true, cor: 0xd8c890, metal: true, descr: '+50 de vida máxima, 15% menos dano recebido e +10% contra os demônios. Forjada por Lia com a máscara de Asmodeu.', mods: { hp: 50, defesa: 0.85, danoDemonio: 1.1 } };
-  OV.ITENS.pergaminho = { nome: 'Pergaminho da Oração ao Anjo', tipo: 'consumivel', raro: true, tecla: '7', descr: 'Raro. Lido em voz alta (tecla 7), chama o seu anjo da guarda para lutar ao seu lado por um minuto. Depois o pergaminho se desfaz em luz.' };
+  OV.ITENS.pergaminho = { nome: 'Pergaminho da Oração ao Anjo', tipo: 'consumivel', raro: true, tecla: '7', descr: 'Muito raro. Lido em voz alta (tecla 7), chama o seu anjo da guarda para ajudar você por meio minuto. Depois o pergaminho se desfaz em luz.' };
   const armaDaOrdem = () => P.pers ? OV.ORDENS[P.pers.ordem].arma : 'espada';
   OF.idArma = n => `arma_${armaDaOrdem()}_${n}`;
   const equipar0 = IT.equipar;
@@ -103,8 +104,8 @@
   OF.darPergaminho = darPergaminho;
   // os baús ricos (das masmorras) às vezes guardam um pergaminho, e o último contrato de cada guilda também
   if (OV.aventura) {
-    OV.aventura.masmorras.forEach(m => { const b = OV.aventura.baus.find(x => x.id === 'mas_' + m.id); if (b) b.conteudo = Object.assign({}, b.conteudo, { itens: (b.conteudo.itens || []).concat([['pergaminho', 1]]) }); });
-    OV.aventura.guildas.forEach(gd => { const c = gd.contratos[gd.contratos.length - 1]; if (c) c.itens = (c.itens || []).concat([['pergaminho', 1]]); });
+    // v24: nas masmorras dos atos II em diante, uma chance pequena (o terceiro número é a chance); as guildas não dão mais
+    OV.aventura.masmorras.forEach(m => { if (m.regiao === 'vale') return; const b = OV.aventura.baus.find(x => x.id === 'mas_' + m.id); if (b) b.conteudo = Object.assign({}, b.conteudo, { itens: (b.conteudo.itens || []).concat([['pergaminho', 1, 0.15]]) }); });
   }
 
   /* ---- a bolsa de materiais aparece no inventário ---- */
@@ -249,7 +250,7 @@
   const AG = { ativo: false, t: 0, op: 0, alvo: null, golpeT: 0, x: 0, z: 0, y: 0 };
   OF.anjoAtivo = () => AG.ativo;
   OF.invocarAnjo = function () {
-    AG.ativo = true; AG.t = 0; AG.dur = 60; AG.golpeT = 1.2;
+    AG.ativo = true; AG.t = 0; AG.dur = 30; AG.golpeT = 1.2; // v24: meio minuto (era um)
     const a = P.facing - 1.2; AG.x = P.pos.x + Math.sin(a) * 2.5; AG.z = P.pos.z + Math.cos(a) * 2.5; AG.y = H(AG.x, AG.z) + 6;
     C().anel(0xffe6a8, 5, 1.2, 0.9); if (A.bell) [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => A.bell(f, 0.16), i * 180));
     ui.clarao('#fff6dc'); ui.toast('«Santo Anjo do Senhor, meu zeloso guardador...» O seu anjo desce para lutar ao seu lado.');
@@ -288,14 +289,16 @@
     const pronto = AG.golpeT <= 0;
     anjo.braco.rotation.x += ((pronto && e && dd < 1.5 ? -2.6 : -0.4) - anjo.braco.rotation.x) * Math.min(1, dt * 10);
     if (AG.ativo && e && dd < 1.6 && pronto) {
-      AG.golpeT = 0.95;
-      const dano = Math.round((P.D ? P.D.dano : 12) * 1.7 + 12);
+      AG.golpeT = 1.5;
+      const dano = Math.round(((P.D ? P.D.dano : 12) * 0.9 + 6) * (e.def.chefe ? 0.6 : 1)); // v24: o anjo ajuda, não luta sozinho
       C().danoInimigo(e, dano, 5, Math.atan2(e.g.position.x - AG.x, e.g.position.z - AG.z), {});
       C().faisca(e.g.position.x, e.g.position.y + 1.2, e.g.position.z, 0xfff0a0);
       if (A.swish) A.swish();
     }
     // a presença do anjo consola: um pouco de vida e de Fé
-    if (AG.ativo && P.D && !P.dead) { P.hp = Math.min(P.D.maxHp, P.hp + 1.2 * dt); P.fe = Math.min(P.D.maxFe, P.fe + 1.5 * dt); }
+    if (AG.ativo && P.D && !P.dead) { P.hp = Math.min(P.D.maxHp, P.hp + 0.5 * dt); P.fe = Math.min(P.D.maxFe, P.fe + 0.8 * dt); }
   });
+  OF.anjoRestante = () => AG.ativo ? Math.max(0, AG.dur - AG.t) : 0;
+  OF.anjoDur = () => AG.dur;
   OF.reiniciar = () => { AG.ativo = false; AG.op = 0; AG.alvo = null; anjo.g.visible = false; anjo.luz.int = 0; };
 })(window.OV);

@@ -193,8 +193,10 @@
     OV.inimigos.lista = OV.inimigos.lista.filter(e => e.tag !== 'cripta');
     const f = OV.jogo.prog.flags;
     if (f.chefe_resolvido) return;
-    const lista = [['larva', 300, 42], ['larva', 301.5, 31], ['possesso', 299, 26], ['diabrete', 295, 6], ['diabrete', 305, 1], ['diabrete', 300, -6], ['possesso', 294, -9], ['possesso', 306, 11]];
-    lista.forEach(([t, x, z]) => { const e = OV.inimigos.spawn(t, false, { x, z }); e.tag = 'cripta'; if (t === 'possesso') e.sumir = true; });
+    // v24: quem guarda um chefão não é fraco: nível 6 a 8, alguns fortes, e um ancião à porta da câmara
+    const lista = [['larva', 300, 42, 6], ['larva', 297, 39, 6, 'forte'], ['larva', 301.5, 31, 7], ['possesso', 299, 26, 6], ['diabrete', 295, 6, 7], ['diabrete', 305, 1, 7, 'forte'],
+      ['possesso', 306, 11, 7], ['diabrete', 300, -6, 7], ['possesso', 294, -9, 7, 'forte'], ['diabrete', 303, -4, 8, 'elite']];
+    lista.forEach(([t, x, z, nivel, variante]) => { const e = OV.inimigos.spawn(t, false, { x, z }, { nivel, variante }); e.tag = 'cripta'; if (t === 'possesso') e.sumir = true; });
   };
   CR.resetarChefe = function () {
     ['meiodia', 'sombra', 'abade', 'prova'].forEach(tag => OV.inimigos.porTag(tag).forEach(e => { if (!e.removed) { scene.remove(e.g); e.lab.el.remove(); e.removed = true; } }));
@@ -203,6 +205,13 @@
   };
   CR.iniciarChefe = function () {
     CR.iniciado = true; CR.fase = 1; CR.fecharPortao(true);
+    // v24: quem caiu diante do abade possuído volta direto a ele
+    const MSv = OV.missoes;
+    if (MSv && MSv.memChefe && MSv.memChefe.tem('abade')) {
+      CR.fase = 3; const ab = OV.inimigos.spawn('abade', true, { x: X, z: CZ - 4 }); ab.tag = 'abade'; ab.state = 'chase';
+      OV.audio.bell(196, 0.3); OV.ui.toast('O Abade Anselmo ainda está tomado pelo demônio. Vença-o sem tirar a vida dele.');
+      return;
+    }
     const b = OV.inimigos.spawn('meiodia', !(OV.cenas && OV.cenas.trocar('meiodia')), { x: X, z: CZ - 6 }); b.tag = 'meiodia'; CR.chefe = b;
     sombraDe(b, true);
     OV.audio.bell(147, 0.35);

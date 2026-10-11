@@ -153,7 +153,7 @@
     return best;
   }
   function libertar(e) { if (e.state === 'dead' || e.state === 'liberto') return; C().danoInimigo(e, e.hp + 999, 0, 0); }
-  function atordoar(e, t, tChefe) { if (e.def.chefe) { if (tChefe) I().atordoar(e, tChefe); else if (e.state === 'windup') { e.state = 'recover'; e.t = 0.8; } } else I().atordoar(e, t); }
+  function atordoar(e, t, tChefe) { if (e.def.chefe) { if (tChefe) I().atordoar(e, tChefe); else if (e.state === 'windup' && !(I().stunImune && I().stunImune(e))) { e.state = 'recover'; e.t = 0.8; if (I().stunImune) e.imuneStun = I().relogio + 4; } } else I().atordoar(e, t); }
   function area(r, fn) { vivos().forEach(e => { if (dist(e) < r + e.def.r) fn(e, dist(e)); }); }
   const ferir = (e, dano, knock, extra) => C().danoInimigo(e, Math.round(dano), knock === undefined ? 4 : knock, angPara(e), Object.assign({ jogador: true }, extra || {}));
   const agendar = (t, fn) => H.agenda.push({ t, fn });

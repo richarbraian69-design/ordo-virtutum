@@ -284,7 +284,7 @@
     if (e.hp <= 0) {
       e.hp = 0; e.lab.el.style.display = 'none';
       if (P.alvo === e) P.alvo = null;
-      if (e.def.moedas && P.pers) { const n = Math.round((e.def.moedas[0] + Math.floor(Math.random() * (e.def.moedas[1] - e.def.moedas[0] + 1))) * (HB() && HB().tem('mao') ? 2 : 1) * (OV.itens ? OV.itens.mod('denarios') : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; }
+      if (e.def.moedas && P.pers) { const n = Math.round((e.def.moedas[0] + Math.floor(Math.random() * (e.def.moedas[1] - e.def.moedas[0] + 1))) * (HB() && HB().tem('mao') ? 2 : 1) * (OV.itens ? OV.itens.mod('denarios') : 1) * (OV.ECON ? OV.ECON.inimigos : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; }
       if (HB()) HB().aoVencer(e);
       if (OV.itens) OV.itens.aoVencer(e);
       if (e.def.liberta) { e.state = 'liberto'; e.t = 0; C.ganharXp(C.xpDe(e)); if (OV.missoes) OV.missoes.evento('liberto', e); return; }

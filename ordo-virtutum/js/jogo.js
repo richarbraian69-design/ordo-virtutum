@@ -35,8 +35,9 @@
 
   /* ---- ponteiro do mouse ---- */
   let locked = false, lockFailed = false, dragging = false, dragDist = 0, dragBtn = 0;
+  const prologoAberto = () => !!(OV.historia && OV.historia.prologoAberto && OV.historia.prologoAberto());
   function tryLock() {
-    if (lockFailed || locked) return;
+    if (lockFailed || locked || prologoAberto()) return; // v24: na história contada (as sete lâmpadas) o mouse fica livre
     try {
       const r = canvas.requestPointerLock();
       if (r && r.catch) r.catch(() => { lockFailed = true; });
@@ -46,8 +47,8 @@
   document.addEventListener('pointerlockchange', () => {
     locked = document.pointerLockElement === canvas; if (locked) lockFailed = false;
     // o mouse chegou preso no meio de uma fala ou cena (pedido que demorou): solta de novo, sem pausar
-    if (locked && (J.dialogo || (OV.cenas && OV.cenas.ativa))) { soltar(); return; }
-    const podePausar = () => !J.semPausaAuto && !locked && J.modo === 'jogo' && !J.pausado && !J.ficha && !J.mapa && !J.dialogo && !J.diarioAb && !J.inv && !P.dead && !ui.ovAberto() && !(OV.cenas && OV.cenas.ativa);
+    if (locked && (J.dialogo || (OV.cenas && OV.cenas.ativa) || prologoAberto())) { soltar(); return; }
+    const podePausar = () => !J.semPausaAuto && !locked && !prologoAberto() && J.modo === 'jogo' && !J.pausado && !J.ficha && !J.mapa && !J.dialogo && !J.diarioAb && !J.inv && !P.dead && !ui.ovAberto() && !(OV.cenas && OV.cenas.ativa);
     if (podePausar()) setTimeout(() => { if (podePausar()) J.pausar(); }, 180);
   });
   document.addEventListener('pointerlockerror', () => { lockFailed = true; });
@@ -187,6 +188,7 @@
   // parcial: no co-op, quando o colega continua lutando, a luta dele não recomeça
   J.renascer = function (parcial) {
     J.mapa = false; MP.fechar(); J.ficha = false; ui.ficha(false);
+    if (parcial !== true && MS().guardarChefes) MS().guardarChefes(); // v24: o chefe guarda as feridas antes de tudo se refazer
     C.resetAcoes(); C.restaurar(); C.limparEfeitos(); posicionarInicio();
     if (parcial !== true) resetarHistoria();
     P.morteUsada = false;
@@ -194,7 +196,7 @@
     if (parcial !== true) MS().evento('renascer');
     ui.fecharOv(); J.pausado = false; tryLock();
   };
-  J.reiniciarLutas = function () { resetarHistoria(); MS().evento('renascer'); };
+  J.reiniciarLutas = function () { if (MS().guardarChefes) MS().guardarChefes(); resetarHistoria(); MS().evento('renascer'); };
 
   /* ---- vícios vencidos ---- */
   J.salvar = function () { if (OV.tempo) J.prog.hora = Math.round(OV.tempo.hora * 100) / 100; if (OV.rumo && OV.rumo.salvarAgora && J.modo === 'jogo') OV.rumo.salvarAgora(); return S.gravar({ v: 2, pers: P.pers, prog: J.prog }); };
@@ -436,7 +438,27 @@
       k = clamp(k, 0.34, 1);
       camDesired.set(camTarget.x + dx * k, camTarget.y + Math.max(0.35, dy * k), camTarget.z + dz * k);
     }
-    M.recuarCamera(camTarget, camDesired);
+    // v24: dentro de casa. Nos salões a câmera fica dentro das paredes; nas casas pequenas ela sobe acima delas (o véu cobre o lado de fora)
+    const itr = M.interiorAtual;
+    if (itr) {
+      if (itr.salao) {
+        const lim = 0.7, cx = itr.x, cz = itr.z, cs = itr.cs, sn = itr.sn;
+        const loc = (x, z) => { const dx = x - cx, dz = z - cz; return [dx * cs - dz * sn, dx * sn + dz * cs]; };
+        const [tx, tz] = loc(camTarget.x, camTarget.z), [qx, qz] = loc(camDesired.x, camDesired.z);
+        const ddx = qx - tx, ddz = qz - tz, Lx = itr.hw - lim, Lz = itr.hd - lim; let k = 1;
+        if (Math.abs(qx) > Lx && Math.abs(ddx) > 1e-4) k = Math.min(k, (Math.sign(ddx) * Lx - tx) / ddx);
+        if (Math.abs(qz) > Lz && Math.abs(ddz) > 1e-4) k = Math.min(k, (Math.sign(ddz) * Lz - tz) / ddz);
+        k = clamp(k, 0.3, 1);
+        const dy = camDesired.y - camTarget.y;
+        camDesired.set(camTarget.x + (camDesired.x - camTarget.x) * k, camTarget.y + Math.max(0.6, dy * k + (1 - k) * 1.6), camTarget.z + (camDesired.z - camTarget.z) * k);
+        camDesired.y = Math.min(camDesired.y, itr.g.position.y + itr.h - 0.5);
+      } else {
+        const pe = Math.max(cam.pitch, 0.98), di = 9.2, cpi = Math.cos(pe), spi = Math.sin(pe);
+        camDesired.set(camTarget.x + Math.sin(cam.yaw) * cpi * di, camTarget.y + spi * di + 0.3, camTarget.z + Math.cos(cam.yaw) * cpi * di);
+        camDesired.y = Math.max(camDesired.y, itr.g.position.y + itr.h + 1.2);
+      }
+    }
+    if (!itr) M.recuarCamera(camTarget, camDesired);
     if (P.pos.x > 200) camDesired.y = Math.min(camDesired.y, OV.cripta.teto(camDesired.x, camDesired.z) - 0.5);
     camDesired.y = Math.max(camDesired.y, M.altura(camDesired.x, camDesired.z) + 0.6);
     if (J.cortarCam) { camera.position.copy(camDesired); J.cortarCam = false; }

@@ -22,6 +22,11 @@
     depois(lx, lz, h) {
       const d = Math.hypot(lx - LAGO.x, lz - LAGO.z);
       if (d < LAGO.r + 4) h -= 3.2 * (1 - smooth(LAGO.r - 5, LAGO.r + 4, d));
+      // v24: a estrada entra por um desfiladeiro em rampa suave, e não num buraco cercado de encosta
+      if (lz > 104) {
+        const w = (1 - smooth(9, 20, Math.abs(lx))) * smooth(104, 120, lz);
+        if (w > 0) { const rampa = 2.4 - 0.4 * smooth(118, 158, lz); h = h * (1 - w) + rampa * w; }
+      }
       return h;
     },
     planos: [

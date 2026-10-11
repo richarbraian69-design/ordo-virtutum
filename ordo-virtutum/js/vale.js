@@ -157,9 +157,14 @@
         const cf = interiorDe(f.x, f.z), cd = interiorDe(d.x, d.z);
         d.via = cf && cf !== cd ? [cf.W(0, cf.hd - 0.5), cf.porta] : false; d.casa = cf || null;
       }
-      const alvoP = d.via && d.via.length ? d.via[0] : d;
+      // v24: depois da porta, se a linha reta até o destino passa por casas ou muros, segue um caminho que os contorna
+      const semVia = !(d.via && d.via.length);
+      const rotear = () => { const r0 = f.obst.r; f.obst.r = 0; d.rota = M.caminho ? (M.caminho(f.x, f.z, d.x, d.z, 0.4) || false) : false; f.obst.r = r0; d.rotaT = performance.now(); };
+      if (semVia && d.rota === undefined) { if (Math.hypot(d.x - f.x, d.z - f.z) > 4 && M.linhaLivre && !M.linhaLivre(f.x, f.z, d.x, d.z, 0.35)) rotear(); else d.rota = false; }
+      if (semVia && d.preso > 1.2 && performance.now() - (d.rotaT || 0) > 2000) { rotear(); d.preso = 0; }
+      const alvoP = !semVia ? d.via[0] : (d.rota && d.rota.length ? d.rota[0] : d);
       const dx = alvoP.x - f.x, dz = alvoP.z - f.z, dist = Math.hypot(dx, dz);
-      if (alvoP !== d && dist < 0.5) { d.via.shift(); d.preso = 0; continue; }
+      if (alvoP !== d && dist < 0.6) { if (!semVia) d.via.shift(); else d.rota.shift(); d.preso = 0; continue; }
       if (dist < 0.25) { f.destino = null; f.mover(d.x, d.z, d.rot); continue; }
       // preso dentro de casa por mais de 3 s: reaparece do lado de fora da porta
       if (d.casa && d.preso > 3 && interiorDe(f.x, f.z) === d.casa) { const pt = d.casa.porta; f.mover(pt.x, pt.z, f.rot); d.via = false; d.preso = 0; continue; }
@@ -172,6 +177,7 @@
         for (const k of [0.8, -0.8, 1.6, -1.6]) { const q2 = tenta(alvo + k); if (Math.hypot(q2.x - f.x, q2.z - f.z) > passo * 0.6) { q = q2; d.lado = k; break; } }
       } else { d.preso = Math.max(0, d.preso - dt * 0.5); if (d.lado && Math.random() < dt * 0.6) d.lado = 0; }
       if (d.preso > 3) q = { x: f.x + Math.sin(alvo) * passo, z: f.z + Math.cos(alvo) * passo }; // preso de verdade: passa rente à parede
+      { const mv = Math.hypot(q.x - f.x, q.z - f.z); if (mv > passo * 1.05 && mv > 1e-6) { const k = passo / mv; q = { x: f.x + (q.x - f.x) * k, z: f.z + (q.z - f.z) * k }; } } // v24: a parede empurra, mas ninguém escorrega depressa
       const rumo = Math.atan2(q.x - f.x, q.z - f.z);
       f.mover(q.x, q.z, OV.util.turnTo(f.rot, rumo, 6 * dt));
     }
@@ -274,13 +280,45 @@
       const lim = Math.max(14, c.hw + 1, c.hd + 1); // v21: salões grandes (o do baile tem 36 x 44 m)
       if (Math.abs(dx) < lim && Math.abs(dz) < lim) { const lx = dx * c.cs - dz * c.sn, lz = dx * c.sn + dz * c.cs; dentro = Math.abs(lx) < c.hw && Math.abs(lz) < c.hd; }
       if (dentro === c.dentro) continue;
-      c.dentro = dentro; c.telhado.visible = !dentro; c.verga.visible = !dentro; if (c.ornato) c.ornato.visible = !dentro;
+      c.dentro = dentro; if (c.ornato) c.ornato.visible = !dentro;
       M.interiorAtual = dentro ? c : (M.interiorAtual === c ? null : M.interiorAtual);
-      c.mp.transparent = dentro; c.mp.opacity = dentro ? 0.2 : 1; c.mp.depthWrite = !dentro; c.mp.needsUpdate = true;
-      c.caixas.forEach(b => { b.semCamera = dentro; });
+      // v24: dentro, só o interior. Nos salões (igrejas grandes) a câmera fica dentro, sob o telhado; nas casas pequenas
+      // ela sobe acima das paredes, o telhado some e um véu escuro cobre tudo o que fica fora da casa
+      c.salao = Math.min(c.hw, c.hd) >= 5.5 && c.h >= 7;
+      c.telhado.visible = !dentro || c.salao; c.verga.visible = !dentro || c.salao;
+      c.telhado.traverse(o => { if (o.isMesh) { if (o.userData.sombra0 === undefined) o.userData.sombra0 = o.castShadow; o.castShadow = dentro && c.salao ? false : o.userData.sombra0; } });
+      c.caixas.forEach(b => { b.semCamera = dentro && !c.salao; });
+      if (!dentro) { c.mp.transparent = false; c.mp.opacity = 1; c.mp.depthWrite = true; c.mp.needsUpdate = true; }
+      c.modoT = null;
       if (OV.jogo && OV.jogo.modo === 'jogo' && OV.ui) OV.ui.local(dentro && c.nome ? c.nome : M.nomeZona(M.zonaEm(P.pos.x, P.pos.z)));
     }
   });
+
+  // o véu escuro que cobre o lado de fora quando se está numa casa pequena (um furo do tamanho da casa)
+  const veus = new Map();
+  function veuDe(c) {
+    if (veus.has(c)) return veus.get(c);
+    const s = new THREE.Shape(); s.moveTo(-260, -260); s.lineTo(260, -260); s.lineTo(260, 260); s.lineTo(-260, 260); s.lineTo(-260, -260);
+    const ex = c.hw + 0.3, ez = c.hd + 0.3, fu = new THREE.Path(); fu.moveTo(-ex, -ez); fu.lineTo(-ex, ez); fu.lineTo(ex, ez); fu.lineTo(ex, -ez); fu.lineTo(-ex, -ez); s.holes.push(fu);
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshBasicMaterial({ color: 0x0c0a08, fog: false }));
+    m.rotation.x = -Math.PI / 2; const gm = new THREE.Group(); gm.add(m);
+    gm.position.set(c.x, c.g.position.y + c.h + 0.04, c.z); gm.rotation.y = c.rot; gm.visible = false; gm.renderOrder = 2; scene.add(gm);
+    veus.set(c, gm); return gm;
+  }
+  // a cada quadro: numa cena (a câmera pode estar fora), as paredes voltam a ficar translúcidas; no jogo, opacas com o véu
+  M.animados.push(() => {
+    for (const [c, v] of veus) if (c !== M.interiorAtual && v.visible) v.visible = false;
+    const c = M.interiorAtual;
+    if (!c) return;
+    const cena = !!(OV.cenas && OV.cenas.ativa);
+    const modo = c.salao ? (cena ? 'salaoCena' : 'salao') : (cena ? 'cena' : 'casa');
+    if (c.modoT === modo) return; c.modoT = modo;
+    const transl = modo === 'cena';
+    c.mp.transparent = transl; c.mp.opacity = transl ? 0.2 : 1; c.mp.depthWrite = !transl; c.mp.needsUpdate = true;
+    veuDe(c).visible = modo === 'casa';
+    if (modo === 'cena' || modo === 'casa') { c.telhado.visible = false; c.verga.visible = false; }
+  });
+  M.veuInterior = c => veus.get(c);
 
   Object.assign(M, { casa, casaInterior, mobilia, telhado, criarOratorio, grupo, vela, chama, frente });
 
@@ -342,17 +380,20 @@
   /* ================= MOSTEIRO, TORRE E CRIPTA ================= */
   (function () {
     // igreja abacial, ao norte do claustro
+    // v24: a igreja abacial agora tem interior (a porta dá para leste, o altar fica a oeste), para a Missa do Ato I
+    const igA = casaInterior(0, -31, Math.PI / 2, 24, 16, 11, { mat: MAT.wall, roof: MAT.roof, rh: 6, piso: MAT.stone, nome: 'Igreja abacial', semOrnato: true, semPatamar: true });
+    M.IGREJA_ABACIAL = igA;
     const ig = grupo(0, -31, 0, 0);
-    ig.add(mesh(new THREE.BoxGeometry(16, 11, 24), MAT.wall, 0, 5.5, 0));
-    const t = telhado(16, 24, 6, MAT.roof); t.position.y = 11; ig.add(t);
-    ig.add(mesh(new THREE.BoxGeometry(17, 0.6, 25), MAT.colDark, 0, 0.3, 0));
+    ig.add(mesh(new THREE.BoxGeometry(17, 0.6, 25), MAT.colDark, 0, -0.1, 0));
     [-6, 0, 6].forEach(z => [-1, 1].forEach(s => {
+      if (s > 0 && z === 0) return; // ali fica a porta
       const v = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4), new THREE.MeshBasicMaterial({ map: glassTex(), fog: true }));
-      v.position.set(s * 8.05, 6, z); v.rotation.y = s * Math.PI / 2; ig.add(v);
+      v.position.set(s * 8.06, 6, z); v.rotation.y = s * Math.PI / 2; ig.add(v);
     }));
     const rosa = new THREE.Mesh(new THREE.CircleGeometry(2.2, 16), new THREE.MeshBasicMaterial({ map: glassTex() }));
-    rosa.position.set(0, 12.5, -12.05); rosa.rotation.y = Math.PI; ig.add(rosa);
-    M.caixa(0, -31, 8.2, 12.2);
+    rosa.position.set(0, 8.5, -12.06); rosa.rotation.y = Math.PI; ig.add(rosa);
+    mobilia(igA, 'altar', 0, -16 / 2 + 2.2, 0);
+    for (let k = 0; k < 4; k++) [-1, 1].forEach(s => mobilia(igA, 'banco', s * 3.2, -1.2 + k * 2.4, 0));
     // torre do sino
     const tw = grupo(11.5, -20.5, 0, 0);
     tw.add(mesh(new THREE.BoxGeometry(5, 19, 5), MAT.wall, 0, 9.5, 0));
@@ -469,11 +510,14 @@
   figura(M.SITIO.vila.x + 7, M.SITIO.vila.z - 14, 0, { id: 'afonso', nome: 'Irmão Afonso', cor: 0x16120f, capuz: true, oculto: true, fala: 'Rezo por você.' });
   figura(11.2, -27, Math.PI / 2, { id: 'abade', nome: 'Abade Anselmo', cor: 0x111014, capuz: true, oculto: true, fala: 'Obrigado.' });
   (function () {
-    const lamp = new THREE.Group(); lamp.position.set(0, 15.6, -18.6); scene.add(lamp);
+    // a Lâmpada da Diligência pende sobre o altar, dentro da igreja abacial
+    const pl = M.IGREJA_ABACIAL ? M.IGREJA_ABACIAL.W(0, -16 / 2 + 3.2) : { x: 0, z: -18.6 };
+    const lamp = new THREE.Group(); lamp.position.set(pl.x, H(0, -31) + 7.4, pl.z); scene.add(lamp);
+    lamp.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 3.4, 4), MAT.gold, 0, 1.9, 0));
     lamp.add(mesh(new THREE.BoxGeometry(0.7, 0.9, 0.7), MAT.gold, 0, 0, 0));
     const luz = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff1c8 })); luz.position.y = 0.05; lamp.add(luz);
     const halo = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false })); lamp.add(halo);
-    const e = M.emissor(0, 15, -17.6, 0, 26, 0xffe2a0);
+    const e = M.emissor(pl.x, H(0, -31) + 7, pl.z, 0, 26, 0xffe2a0);
     M.lampada = b => { luz.visible = b; halo.visible = b; e.int = b ? 2.6 : 0; };
     M.lampada(false);
   })();

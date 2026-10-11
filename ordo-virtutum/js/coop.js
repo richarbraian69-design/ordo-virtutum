@@ -16,7 +16,7 @@
   const { turnTo, lerp } = OV.util;
   const $ = id => document.getElementById(id);
   const esc = s => ui.esc(String(s));
-  const VERSAO = '23';
+  const VERSAO = '24';
   const MULT = 2.5;
 
   const CO = { papel: null, codigo: null, ficha: null, ws: null, conectado: false, colegaOn: false, colegaNome: '', seq: 0, atkSeq: 0, mundoHost: null, espelho: false };
@@ -573,7 +573,7 @@
     if (opts && opts.jogador && HB) HB.aoAcertar(e, d, opts);
   }
   const atordoar0 = I.atordoar;
-  I.atordoar = function (e, t) { if (CO.convidado()) { if (e && e.replica) CO.enviar({ t: 'atordoar', id: e.netId, s: r2(t) }); return; } return atordoar0.call(I, e, t); };
+  I.atordoar = function (e, t, forcar) { if (CO.convidado()) { if (e && e.replica) CO.enviar({ t: 'atordoar', id: e.netId, s: r2(t) }); return; } return atordoar0.call(I, e, t, forcar); };
   // os golpes que chegam no convidado
   function serFerido(m) {
     if (P.dead || J.modo !== 'jogo') return;
@@ -599,7 +599,7 @@
     const fake = { def: Object.assign({}, m.def, { name: '' }), g: { position: new THREE.Vector3(m.x, m.y, m.z) }, tag: null, hp: 0, state: 'dead' };
     C.ganharXp(C.xpDe(fake));
     const mo = m.def.moedas;
-    if (mo && mo.length === 2) { const n = Math.round((mo[0] + Math.floor(Math.random() * (mo[1] - mo[0] + 1))) * (OV.habilidades && OV.habilidades.tem('mao') ? 2 : 1) * (OV.itens ? OV.itens.mod('denarios') : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; }
+    if (mo && mo.length === 2) { const n = Math.round((mo[0] + Math.floor(Math.random() * (mo[1] - mo[0] + 1))) * (OV.habilidades && OV.habilidades.tem('mao') ? 2 : 1) * (OV.itens ? OV.itens.mod('denarios') : 1) * (OV.ECON ? OV.ECON.inimigos : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; }
     if (OV.itens) OV.itens.aoVencer(fake);
     if (m.fall) ui.toast(m.fall);
     const e = porIdC.get(m.id); if (e) { e.netState = m.def.liberta ? 'liberto' : 'dead'; e.state = e.netState; if (e.lab) e.lab.el.style.display = 'none'; }
@@ -743,7 +743,7 @@
   J.interagir = function () {
     if (CO.convidado()) {
       if (J.ativo() && !P.dead && M.interativoProximo(P.pos.x, P.pos.z)) return interagir0.call(J);
-      avisoUmaVez('interagir', `No co-op, quem conversa e mexe no mundo é ${CO.colegaNome || 'o anfitrião'}. Os baús das capelas e a Casa do Peregrino você usa à vontade.`); return;
+      avisoUmaVez('interagir', `No co-op, quem conversa e mexe no mundo é ${CO.colegaNome || 'o anfitrião'}. A Casa do Peregrino e o baú dela você usa à vontade.`); return;
     }
     return interagir0.call(J);
   };

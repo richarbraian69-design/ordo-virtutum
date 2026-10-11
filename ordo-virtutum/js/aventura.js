@@ -213,7 +213,11 @@
       if (c.fase === 'voo') { l = -0.9; r = -0.9; }
       else if (c.fase === 'andar') { l = -0.9; r = -0.9; }
       else if (c.fase === 'usar') {
-        if (ac === 'forja') { r = -2.4 + Math.abs(Math.sin(t * 2.4)) * 1.9; l = -0.6; } // o martelo sobe e desce no ritmo de quem trabalha
+        if (ac === 'forja') {
+          // v24: o martelo sobe devagar e desce num golpe seco, a cada 0,9 s; a outra mão segura a tenaz
+          const p = (t % 0.9) / 0.9; r = p < 0.62 ? -0.8 - 1.9 * (p / 0.62) : p < 0.74 ? -2.7 + 2.0 * ((p - 0.62) / 0.12) : -0.7; l = -1.1;
+          L.rotation.x = l; R.rotation.x = r; return;
+        }
         else if (ac === 'panela') { r = -1.2 + Math.sin(t * 1.9) * 0.35; l = -1.0 + Math.cos(t * 1.9) * 0.2; }
         else if (ac === 'tocar') { l = -1.2; r = -0.9 + Math.sin(t * 4.2) * 0.25; }
         else if (ac === 'beber') { r = -2.4; l = -2.3; }
@@ -224,7 +228,7 @@
       L.rotation.x += (l - L.rotation.x) * kk; R.rotation.x += (r - R.rotation.x) * kk;
     };
   }
-  const ESTACAO = { forja: 1.2, panela: 1.1, lareira: 1.3, pendurar: 0.9, altar: 1.1, tocar: 0, dar: 0, beber: 0, ler: 0, curral: 0, colocar: 0 };
+  const ESTACAO = { forja: 1.75, panela: 1.1, lareira: 1.3, pendurar: 0.9, altar: 1.1, tocar: 0, dar: 0, beber: 0, ler: 0, curral: 0, colocar: 0 };
   function atualizarCena(dt) {
     if (!cena) {
       if (fila.length && !D.aberto && !(OV.cenas && OV.cenas.ativa) && (OV.jogo.ativo() || fila[0].espelho)) {
@@ -262,6 +266,7 @@
       usar(c, dt);
       if (c.t >= dur) { c.fase = 'fim'; c.t = 0; }
     } else if (c.fase === 'fim') {
+      if (c.martelo && c.martelo.parent) c.martelo.parent.remove(c.martelo);
       if (!c.cfg.fica && c.obj.parent) scene.remove(c.obj);
       if (f) { f.gesto = null; if (c.casa && f.pernas && !c.cfg.semVolta) f.ir(c.casa.x, c.casa.z, c.casa.rot); }
       if (OV.cenas) OV.cenas.encerrar();
@@ -282,10 +287,16 @@
     else if (ac === 'pendurar') { if (c.obj.userData.ave) for (let i = 0; i < 6; i++) setTimeout(() => A.bell && A.bell(1700 + Math.random() * 600, 0.04), 300 + i * 210); A.bell && A.bell(660, 0.08); }
     else if (ac === 'curral') { A.bell && A.bell(440, 0.08); }
     else if (ac === 'beber' || ac === 'dar' || ac === 'ler') A.bell && A.bell(587, 0.08);
-    if (ac === 'forja') for (let i = 0; i < 6; i++) setTimeout(() => A.bell && A.bell(1250 + (i % 2) * 90, 0.06), 350 + i * 420);
+
   }
   function usar(c, dt) {
     const ac = c.cfg.acao || 'dar', a = c.alvo, f = c.f;
+    if (ac === 'forja' && f && f.bracos) {
+      // v24: o martelo na mão de quem forja, e faíscas a cada golpe
+      if (!c.martelo) { const m = new THREE.Group(); m.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), CORES.madeira, 0, -0.62, 0.12)); m.add(mesh(new THREE.BoxGeometry(0.2, 0.11, 0.11), CORES.ferro, 0, -0.86, 0.12)); f.bracos[1].add(m); c.martelo = m; }
+      const fase = c.t % 0.9, ant = (c.t - dt) % 0.9;
+      if (ant < 0.68 && fase >= 0.68 && a) { const fx = f.x + Math.sin(f.rot) * 0.9, fz = f.z + Math.cos(f.rot) * 0.9; for (let k = 0; k < 3; k++) OV.combate.faisca(fx + (Math.random() - 0.5) * 0.3, a.y + 0.1, fz + (Math.random() - 0.5) * 0.3, 0xffa040); if (A.bell) A.bell(1250 + Math.random() * 120, 0.05); }
+    }
     const mao = f && f.bracos ? maoDe(f.bracos[1]) : null;
     if (ac === 'forja' || ac === 'lareira' || ac === 'panela') {
       // a coisa vai para dentro do fogo ou da panela
@@ -443,11 +454,11 @@
     for (let i = 0; i < 4; i++) setTimeout(() => C().faisca(cfg.x, H(cfg.x, cfg.z) + 0.9, cfg.z, 0xffd27a), 200 + i * 180);
     A.bell && A.bell(659, 0.14); setTimeout(() => A.bell && A.bell(880, 0.12), 220);
     const ct = cfg.conteudo || {}, out = [];
-    if (ct.den) { const n = ct.den[0] + Math.floor(Math.random() * (ct.den[1] - ct.den[0] + 1)); P.pers.denarios = (P.pers.denarios || 0) + n; out.push(`${n} denários`); }
-    (ct.itens || []).forEach(([id, n]) => { if (IT.dar(id, n, true)) out.push(`${OV.ITENS[id].nome}${n > 1 ? ' ×' + n : ''}`); else { P.pers.bau[id] = (P.pers.bau[id] || 0) + n; out.push(`${OV.ITENS[id].nome} (guardado no baú do peregrino)`); } });
+    if (ct.den) { const n = Math.round((ct.den[0] + Math.floor(Math.random() * (ct.den[1] - ct.den[0] + 1))) * (OV.ECON ? OV.ECON.baus : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; out.push(`${n} denários`); }
+    (ct.itens || []).forEach(([id, n, chance]) => { if (chance !== undefined && Math.random() >= chance) return; if (IT.dar(id, n, true)) out.push(`${OV.ITENS[id].nome}${n > 1 ? ' ×' + n : ''}`); else { P.pers.bau[id] = (P.pers.bau[id] || 0) + n; out.push(`${OV.ITENS[id].nome} (guardado no baú do peregrino)`); } });
     if (ct.equip) {
       const mo = IT.mochila(), tem = id => (mo.itens[id] || 0) > 0 || Object.values(mo.equip).includes(id) || (P.pers.bau[id] || 0) > 0;
-      const novos = (ct.equipLista || Object.keys(OV.ITENS).filter(k => OV.ITENS[k].slot && !OV.ITENS[k].guilda)).filter(id => !tem(id));
+      const novos = (ct.equipLista || Object.keys(OV.ITENS).filter(k => OV.ITENS[k].slot && !OV.ITENS[k].guilda && !OV.ITENS[k].unico)).filter(id => !tem(id));
       if (novos.length) { const id = novos[(Math.random() * novos.length) | 0]; if (!IT.dar(id, 1, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + 1; out.push(OV.ITENS[id].nome); }
     }
     // os baús raros guardam uma peça para a Casa do Peregrino (a Vela do Exame nunca vem de baú)
@@ -663,7 +674,7 @@
   function concluirQ(q) {
     MS.concluir(q.id);
     const out = [];
-    if (q.den) { P.pers.denarios = (P.pers.denarios || 0) + q.den; out.push(`${q.den} denários`); }
+    if (q.den) { const n = Math.round(q.den * (OV.ECON ? OV.ECON.missoes : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; out.push(`${n} denários`); }
     (q.itens || []).forEach(([id, n]) => { if (!IT.dar(id, n, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + n; out.push(`${OV.ITENS[id].nome}${n > 1 ? ' ×' + n : ''}`); });
     if (out.length) setTimeout(() => ui.toast('Recebido: ' + out.join(', ') + '.'), 1600);
     if (q.aoConcluir) q.aoConcluir();
@@ -732,7 +743,8 @@
     cfg.contratos.forEach((c, i) => {
       c.id = `${cfg.id}_c${i + 1}`;
       const prog0 = () => F()['gldb_' + c.id] || 0;
-      const feito = () => c.tipo === 'vencer' ? (F()['gldn_' + c.id] || 0) : c.tipo === 'baus' ? AV.bausAbertos(cfg.regiao) - prog0() : AV.masmorraFeita(c.masmorra) ? 1 : 0;
+      // v24: os baús que o peregrino já abriu antes de aceitar o contrato também contam
+      const feito = () => c.tipo === 'vencer' ? (F()['gldn_' + c.id] || 0) : c.tipo === 'baus' ? AV.bausAbertos(cfg.regiao) : AV.masmorraFeita(c.masmorra) ? 1 : 0;
       c.feito = feito;
       MS.MIS[c.id] = { ato: cfg.ato, nome: `${cfg.curto}: ${c.nome}`, tipo: 's', xp: c.xp || 100, etapas: [
         () => c.tipo === 'masmorra' ? c.txt : `${c.txt} (${Math.min(c.n, feito())}/${c.n})`, `Volte a ${nomeDe(cfg.mestre)}, ${cfg.ondeMestre}.`],
@@ -754,24 +766,27 @@
   function dialogoGuilda(cfg) {
     const nome = nomeDe(cfg.mestre), c = contratoAtual(cfg);
     if (!c) return linha(nome, cfg.falaMestre || `Você é ${cfg.titulos[cfg.titulos.length - 1]} da ${cfg.nome}. Seu nome está no livro da confraria, e as nossas portas estão sempre abertas.`);
-    if (MS.ativa(c.id) && MS.etapa(c.id) === 1) {
-      return { inicio: 'a', nos: { a: { quem: nome, txt: c.fala || 'Contrato cumprido. A confraria agradece, e paga o que prometeu.', depois: () => {
-        MS.concluir(c.id);
-        F()['gld_' + cfg.id] = rank(cfg) + 1;
-        const out = [];
-        if (c.den) { P.pers.denarios = (P.pers.denarios || 0) + c.den; out.push(`${c.den} denários`); }
-        (c.itens || []).forEach(([id, n]) => { if (!IT.dar(id, n, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + n; out.push(OV.ITENS[id].nome); });
-        setTimeout(() => ui.toast(`${cfg.curto}: agora você é ${cfg.titulos[rank(cfg) - 1]}.`), 1500);
-        if (out.length) setTimeout(() => ui.toast('Recebido: ' + out.join(', ') + '.'), 3200);
-        A.bell && A.bell(523, 0.16); OV.jogo.salvar();
-      } } } };
-    }
+    const pagar = () => {
+      MS.concluir(c.id);
+      F()['gld_' + cfg.id] = rank(cfg) + 1;
+      const out = [];
+      if (c.den) { const n = Math.round(c.den * (OV.ECON ? OV.ECON.contratos : 1)); P.pers.denarios = (P.pers.denarios || 0) + n; out.push(`${n} denários`); }
+      (c.itens || []).forEach(([id, n]) => { if (!IT.dar(id, n, true)) P.pers.bau[id] = (P.pers.bau[id] || 0) + n; out.push(OV.ITENS[id].nome); });
+      setTimeout(() => ui.toast(`${cfg.curto}: agora você é ${cfg.titulos[rank(cfg) - 1]}.`), 1500);
+      if (out.length) setTimeout(() => ui.toast('Recebido: ' + out.join(', ') + '.'), 3200);
+      A.bell && A.bell(523, 0.16); OV.jogo.salvar();
+    };
+    // v24: contrato já cumprido antes (ou durante) — o mestre confere e paga na hora
+    if (MS.ativa(c.id) && MS.etapa(c.id) === 0 && c.tipo !== 'vencer' && (c.tipo === 'baus' ? c.feito() >= c.n : c.feito())) MS.avancar(c.id, 1);
+    if (MS.ativa(c.id) && MS.etapa(c.id) === 1) return { inicio: 'a', nos: { a: { quem: nome, txt: c.fala || 'Contrato cumprido. A confraria agradece, e paga o que prometeu.', depois: pagar } } };
     if (MS.ativa(c.id)) return linha(nome, `O contrato continua de pé: ${c.txt.charAt(0).toLowerCase() + c.txt.slice(1)}`);
+    const jaFeito = () => c.tipo === 'baus' ? c.feito() >= c.n : c.tipo === 'masmorra' ? !!c.feito() : false;
     return { inicio: 'a', nos: {
       a: { quem: nome, txt: rank(cfg) === 0 ? cfg.convite : `Há mais um contrato no quadro, se você quiser: ${c.txt.charAt(0).toLowerCase() + c.txt.slice(1)}`, opc: [
-        { t: 'Aceito o contrato.', ef: () => { F()['gldn_' + c.id] = 0; F()['gldb_' + c.id] = AV.bausAbertos(cfg.regiao); MS.iniciar(c.id); if (c.tipo === 'masmorra' && c.feito()) MS.avancar(c.id, 1); }, ir: 'b' },
+        { t: 'Aceito o contrato.', ef: () => { F()['gldn_' + c.id] = 0; MS.iniciar(c.id); if (jaFeito()) MS.avancar(c.id, 1); }, ir: () => jaFeito() ? 'p' : 'b' },
         { t: 'Agora não.' }] },
-      b: { quem: nome, txt: 'Está escrito no livro. Volte quando estiver feito.' }
+      b: { quem: nome, txt: 'Está escrito no livro. Volte quando estiver feito.' },
+      p: { quem: nome, txt: () => `Espere... isso você já fez antes mesmo de assinar! ${c.fala || 'Contrato cumprido. A confraria agradece, e paga o que prometeu.'}`, depois: pagar }
     } };
   }
   // contagem dos contratos

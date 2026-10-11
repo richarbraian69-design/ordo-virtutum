@@ -271,6 +271,7 @@
   const noTopo = (dx, dz) => W(R.TORRE.x + dx, R.TORRE.z + dz);
   function desafiar() {
     chefe.falando = true;
+    if (MS.memChefe && MS.memChefe.tem('principe')) { chefe.falando = false; iniciarChefe(); return; } // v24: quem já lutou não revê a cena de entrada
     const primeira = !F().principe_visto; F().principe_visto = true;
     const fala = () => D.abrir(arv('O Príncipe da Soberba', {
       a: { txt: primeira ? 'Subiu sozinho? Bom. Os outros sobem pisando, você sobe rezando, mas sobe. Todo mundo quer o alto. Eu também quis: «Subirei ao céu, acima das estrelas de Deus porei o meu trono» (Is 14,13). E aqui estou. Acima das nuvens.' : 'Voltou. Quem cai e volta é teimoso. Eu também sou.', prox: 'b' },
@@ -297,7 +298,7 @@
     const p = e.g.position, col = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.8, 40, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0.6, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
     col.position.set(p.x, p.y + 20, p.z);
     C().efeito([col], 1.2, k => { col.material.opacity = 0.6 * (1 - k); });
-    I.atordoar(e, 5); e.marca = 5; e.marcaF = 0.5;
+    I.atordoar(e, 5, true); e.marca = 5; e.marcaF = 0.5;
     C().danoInimigo(e, Math.round(e.def.hp * 0.04), 0, 0);
     if (chefe.humildade <= 3) MS.ato('fe');
     J().shake(0.5); A.bell(523, 0.18); setTimeout(() => A.bell(784, 0.16), 220);
@@ -448,6 +449,7 @@
       b: { txt: 'Olhe: a sarça. Ela está esperando. Desça, e vá ao mosteiro: Abba Efrém vai celebrar a Divina Liturgia, e a sétima lâmpada vai se acender.', ef: () => { MS.avancar('a7m5', 2); J().salvar(); }, depois: () => setTimeout(descer, 600) }
     }));
   }
+  if (MS.missas) MS.missas.push({ nome: 'Igreja da Transfiguração', pronta: () => MS.ativa('a7m5') && MS.etapa('a7m5') === 2, iniciar: () => liturgia7() });
   function liturgia7() {
     const f = F();
     const linhas = [
@@ -461,7 +463,7 @@
     if (MS.feita('a7s1')) linhas.push(['Rebeca, a pastora', `A ovelhinha que você trouxe nos ombros pariu ontem. Davi quer dar ao cordeiro o nome ${g('do padrinho', 'da madrinha')}.`]);
     linhas.push(['', 'No fim, todos saem em procissão até o pátio. A sarça, que ardia vermelha, começa a arder branca, e a luz alcança o deserto inteiro, até o cume, até a Torre vazia: a Lâmpada da Humildade.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja da Transfiguração', 'abbaEfrem', linhas, () => {
       f.ato7_fim = true; MS.concluir('a7m5', f.fim7 || caminho());
       R.acenderLampada(true);
       [0, 500, 1000, 1500, 2000, 2500, 3000].forEach((t, i) => setTimeout(() => A.bell([262, 294, 330, 349, 392, 440, 523][i], 0.3), t));

@@ -282,6 +282,7 @@
     if (chefe.ativo || chefe.falando) return;
     chefe.falando = true;
     const lutar = (isca) => {
+      if (MS.memChefe && MS.memChefe.tem('leviata')) { chefe.falando = false; iniciarChefe(isca); return; } // v24
       const fala = () => D.abrir(arv('Leviatã', {
         a: { txt: 'Quem toca o sino que eles calaram? Um peregrino... Olhe as duas margens: lá em cima eles têm pão branco, aqui embaixo eles têm pano fino. E você? Você não tem nada. Não dói?', prox: 'b' },
         b: { quem: 'Anjo da Guarda', txt: 'É o Leviatã, a serpente das águas que Jó viu. Ele vive da tristeza pelo bem dos outros. Quando o olho dele ficar verde, vai cair uma luz sobre a Pedra: corra até ela e alegre-se. Se ele engolir você, reze: segure R, como Jonas no ventre do peixe.',
@@ -304,7 +305,7 @@
     chefe.ativo = true; chefe.fase = 1;
     const l = local(); chefe.ang = Math.atan2(l.z - R.PEDRA.z, l.x - R.PEDRA.x) + Math.PI; // do lado oposto ao peregrino
     const b = I.spawn('leviata', !(OV.cenas && OV.cenas.trocar('leviata')), ancora(chefe.ang)); b.tag = 'leviata'; chefe.b = b;
-    if (isca) { b.hp = Math.round(b.def.hp * 0.85); I.atordoar(b, 5); setTimeout(() => ui.toast('Leviatã ficou preso no anzol de ouro! Aproveite: ele está atordoado.'), 400); }
+    if (isca) { b.hp = Math.round(b.def.hp * 0.85); I.atordoar(b, 5, true); setTimeout(() => ui.toast('Leviatã ficou preso no anzol de ouro! Aproveite: ele está atordoado.'), 400); }
     MS.avancar('a5m5', 1);
     A.bell(131, 0.35); J().shake(0.35);
   }
@@ -328,7 +329,7 @@
     if (!P.dead && !chefe.ventre && Math.hypot(P.pos.x - L.x, P.pos.z - L.z) < 1.9) {
       M.scene.remove(L.g); chefe.luz = null; e.eyeBase = 0xffd84a;
       P.hp = Math.min(P.D.maxHp, P.hp + P.D.maxHp * 0.12);
-      I.atordoar(e, 2.6); if (chefe.alegrou < 3) MS.ato('caridade'); chefe.alegrou++;
+      I.atordoar(e, 2.6, true); if (chefe.alegrou < 3) MS.ato('caridade'); chefe.alegrou++;
       C().anel(0xffe6a8, 3, 0.8, 0.8); A.bell(784, 0.14);
       ui.toast('Você se alegrou com o bem do outro. A serpente se encolhe, sem ter o que comer.');
       return;
@@ -383,7 +384,7 @@
     const a = Math.random() * Math.PI * 2, p = W(R.PEDRA.x + Math.cos(a) * 5, R.PEDRA.z + Math.sin(a) * 5);
     C().posicionar(p.x, p.z, Math.atan2(chefe.b ? chefe.b.g.position.x - p.x : 0, chefe.b ? chefe.b.g.position.z - p.z : 1));
     P.invuln = 1.2; C().anel(0x9ae8ff, 3.4, 0.8, 0.8); J().shake(0.4);
-    const e = chefe.b; if (e && vivo(e)) { I.atordoar(e, 6); e.marca = 6; e.marcaF = 0.6; }
+    const e = chefe.b; if (e && vivo(e)) { I.atordoar(e, 6, true); e.marca = 6; e.marcaF = 0.6; }
     if (!chefe.jonas) { chefe.jonas = true; MS.ato('esperanca'); F().jonas5 = true; }
     ui.toast('A oração subiu, e o Senhor falou ao peixe. O Leviatã cuspiu você na Pedra, atordoado e ferido por dentro!');
     A.bell(523, 0.2); setTimeout(() => A.bell(659, 0.18), 260);
@@ -449,6 +450,7 @@
       z: { quem: 'Anjo da Guarda', txt: 'Está feito. A igreja está esperando: vá até a porta de São João. Hoje, pela primeira vez, as duas aldeias vão entrar pelo mesmo lado.', ef: () => { MS.avancar('a5m5', 2); R.abrirMuro(true); J().salvar(); } }
     }));
   }
+  if (MS.missas) MS.missas.push({ nome: 'Igreja de São João', pronta: () => MS.ativa('a5m5') && MS.etapa('a5m5') === 2, iniciar: () => missa5() });
   function missa5() {
     const f = F();
     const linhas = [
@@ -461,7 +463,7 @@
     if (MS.feita('a5s1')) linhas.push(['Rute, a sacristã', 'As cartas sem nome viraram cinza no braseiro da sacristia. Ninguém nunca vai saber quem escreveu. É melhor assim.']);
     linhas.push(['', 'Ao fim da Missa, o sino de São João toca, e no alto do campanário uma luz verde-clara se acende sobre o muro aberto: a Lâmpada da Benevolência.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja de São João', 'padreZacarias', linhas, () => {
       f.ato5_fim = true; MS.concluir('a5m5', f.muro_fim || 'ponte');
       R.acenderLampada(true); R.abrirMuro(true);
       [0, 600, 1200, 1800, 2400].forEach((t, i) => setTimeout(() => A.bell([262, 330, 392, 440, 523][i], 0.3), t));

@@ -131,6 +131,7 @@
     posFig();
     R.acenderLampada(!!f.ato4_fim);
     resetarChefe();
+    if (!f.asmodeu_vencido && MS.ativa('a4m5') && MS.etapa('a4m5') === 1) st('a4m5').e = 0; // v24
   });
   MS.ganchos.spawn.push(() => {
     const f = F();
@@ -240,6 +241,7 @@
   function desafiar() {
     if (chefe.ativo || chefe.falando) return;
     chefe.falando = true;
+    if (MS.memChefe && MS.memChefe.tem('asmodeu')) { chefe.falando = false; iniciarChefe(); return; } // v24: quem já lutou não revê a cena de entrada
     const fala = () => D.abrir(arv('Asmodeu', {
       a: { txt: 'Bem-vindo ao baile! Aqui ninguém precisa ser quem é. Ninguém promete nada, ninguém cobra nada. Só olhe para mim... e esqueça o resto.', prox: 'b' },
       b: { quem: 'Anjo da Guarda', txt: () => 'É Asmodeu, o demônio que Rafael amarrou no livro de Tobias. Os espelhos do salão o alimentam: quebre-os. E quando ele tirar a máscara, desvie o olhar: vire a câmera para longe dele e solte a trava de alvo (Tab).' + (F().graca_agostinho ? ' A Graça de Agostinho está com você: um golpe basta para cada espelho.' : ''),
@@ -271,7 +273,7 @@
     } else {
       ui.toast('Você guardou os olhos. O Fascínio passou sem tocá-lo.');
       if (chefe.guardou < 3) { chefe.guardou++; MS.ato('temperanca'); }
-      I.atordoar(e, 1.2);
+      I.atordoar(e, 1.2, true);
     }
     A.bell(740, 0.1);
   }
@@ -321,7 +323,7 @@
     limparEfeitos(); chefe.tele = 0;
     D.abrir(arv('Asmodeu', {
       a: { txt: 'Chega de lutar. Tome esta máscara: com ela você pode ser quem quiser, sem promessas, sem ninguém para cobrar nada. Só por esta noite...', opc: [
-        { t: '"Felizes os puros de coração, porque verão a Deus."', ef: () => { F().oferta4 = 'recusou'; MS.ato('temperanca'); I.atordoar(b, 2.5); }, ir: 'r' },
+        { t: '"Felizes os puros de coração, porque verão a Deus."', ef: () => { F().oferta4 = 'recusou'; MS.ato('temperanca'); I.atordoar(b, 2.5, true); }, ir: 'r' },
         { t: 'Pegar a máscara, só por esta noite...', ef: () => { F().oferta4 = 'cedeu'; P.status.luxuria = 25; b.hp = Math.min(b.def.hp, b.hp + b.def.hp * 0.2); }, ir: 'c' }] },
       r: { quem: '', txt: 'A máscara cai das mãos de Asmodeu e se parte no chão de mármore. Por um instante, o salão inteiro parece mais claro.' },
       c: { quem: 'Anjo da Guarda', txt: 'Você aceitou, e a vista se turvou. Mas uma noite não é a vida inteira: levante-se. O Recolhimento limpa os olhos.' }
@@ -345,6 +347,7 @@
       z: { quem: 'Anjo da Guarda', txt: 'Está feito. Vá à Igreja de Santo Agostinho, a oeste da praça: Belmonte espera pela Missa.', ef: () => { MS.avancar('a4m5', 2); J().salvar(); } }
     }));
   }
+  if (MS.missas) MS.missas.push({ nome: 'Igreja de Santo Agostinho', pronta: () => MS.ativa('a4m5') && MS.etapa('a4m5') === 2, iniciar: () => missa4() });
   function missa4() {
     const f = F();
     const linhas = [
@@ -356,7 +359,7 @@
     if (MS.feita('a4s1')) linhas.push(['Clara, a costureira', 'Não costuro mais máscaras. Agora faço véus de batismo e roupas de festa para quem casa.']);
     linhas.push(['', 'Ao fim da Missa, todos olham para a torre do palácio. No alto, uma luz clara e serena se acende: a Lâmpada da Castidade.']);
     ui.clarao('#000000');
-    D.falas(linhas, () => {
+    MS.missaDentro('Igreja de Santo Agostinho', 'bernardo', linhas, () => {
       f.ato4_fim = true; MS.concluir('a4m5', f.mascaras_fim || 'livre');
       R.acenderLampada(true);
       [0, 600, 1200, 1800, 2400].forEach((t, i) => setTimeout(() => A.bell([294, 349, 440, 523, 587][i], 0.3), t));
