@@ -200,8 +200,8 @@
     if (FIXOS.has(base.key) || opts.semAjuste || !def.dmg) return def;
     // os vícios do Claustro Tomado lutam como se fossem de nível 7 (o Irmão Afonso, de nível 6)
     const doClaustro = CLAUSTRO[base.key] && !opts.nivel && Math.abs(x) < 18 && Math.abs(z) < 18;
-    // no co-op, os vícios do mundo do anfitrião têm 2,5x de vida e de dano
-    const fim = d0 => { if (OV.coop && OV.coop.multiplicador) { const k = OV.coop.multiplicador(); if (k !== 1) { d0.hp = Math.round(d0.hp * k); d0.dmg = Math.round(d0.dmg * k); } } return d0; };
+    // no co-op, os vícios do mundo do anfitrião têm 2,5x de vida e de dano (3,5x com três ou quatro jogadores)
+    const fim = d0 => { if (OV.coop && OV.coop.multiplicador) { const k = OV.coop.multiplicador(); if (k !== 1) { d0.hp = Math.round(d0.hp * k); d0.dmg = Math.round(d0.dmg * k); d0.multCoop = k; } } return d0; }; // v25: multCoop deixa reajustar quando o grupo muda
     if (doClaustro) def = escalar(base, CLAUSTRO[base.key], def.variante);
     const chefe = CHEFES.has(base.key) || !!base.chefe;
     // v18: os chefões são bem mais duros (e entram em fúria no fim); longe das vilas os vícios crescem até sete níveis

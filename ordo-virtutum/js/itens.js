@@ -414,7 +414,7 @@
     if (s.onde === 'inv') {
       if (it.tipo === 'consumivel') b.push(['usar', 'Usar']);
       if (it.slot) b.push(['equipar', 'Equipar']);
-      if (modo === 'bau') b.push(['guardar', abaBau === 'dupla' ? 'Guardar no baú da dupla →' : 'Guardar no baú →']);
+      if (modo === 'bau') b.push(['guardar', abaBau === 'dupla' ? 'Guardar no baú do grupo →' : 'Guardar no baú →']);
       if (IT.podeDarColega && IT.podeDarColega(s.id)) b.push(['presente', `Dar a ${esc(IT.nomeColega())}`]);
     } else if (s.onde === 'bau' || s.onde === 'dupla') b.push(['pegar', '← Pegar']);
     else if (s.onde === 'eq') b.push(['tirar', 'Tirar']);
@@ -449,8 +449,8 @@
       const pb = pilhas(fonte, true);
       let gb = pb.map(([id, n]) => celula(id, n, onde)).join('');
       for (let i = pb.length; i < Math.max(CAPACIDADE, Math.ceil((pb.length + 1) / 5) * 5); i++) gb += vazia();
-      const abas = temDupla ? `<div class="inv-abas"><button type="button" data-aba="meu" class="${dupla ? '' : 'on'}">Seu baú</button><button type="button" data-aba="dupla" class="${dupla ? 'on' : ''}">Baú da dupla</button></div>` : '';
-      html += `<div>${abas}<h3>${dupla ? 'Baú da dupla' : 'Baú'} <small>${pb.length} ${pb.length === 1 ? 'item' : 'itens'}</small></h3>${dupla ? '<p class="sub">Os dois jogadores veem e usam este baú. Ele fica guardado no mundo do anfitrião.</p>' : ''}<div class="grade">${gb}</div></div>`;
+      const abas = temDupla ? `<div class="inv-abas"><button type="button" data-aba="meu" class="${dupla ? '' : 'on'}">Seu baú</button><button type="button" data-aba="dupla" class="${dupla ? 'on' : ''}">Baú do grupo</button></div>` : '';
+      html += `<div>${abas}<h3>${dupla ? 'Baú do grupo' : 'Baú'} <small>${pb.length} ${pb.length === 1 ? 'item' : 'itens'}</small></h3>${dupla ? '<p class="sub">Todos os jogadores da sala veem e usam este baú. Ele fica guardado no mundo do anfitrião.</p>' : ''}<div class="grade">${gb}</div></div>`;
     }
     html += `</div><div class="inv-det">${sel ? `<div class="det-txt">${fichaItem(sel.id)}</div><div class="det-acoes">${acoes(sel)}</div>` : '<p class="det-vazio">Passe o mouse sobre um item para ler a sua descrição. Clique para escolher o que fazer com ele; dois cliques usam, equipam ou guardam.</p>'}</div>`;
     html += '<p class="foot">Consumíveis e restos corrompidos se empilham até 10 por espaço. Itens corrompidos só servem depois da bênção de um sacerdote (Padre Tomé, Frei Gaspar). Pressione I ou Esc para fechar.</p>';
