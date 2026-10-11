@@ -16,7 +16,13 @@
     minas: { nome: 'Minas de Mamom', livre: () => !!F().ato2_fim, pos: () => OV.regioes.minas && OV.regioes.minas.ENTRADA, yaw: 0,
       chegada: 'A estrada da serra sobe por um dia inteiro. No fim, entre as montanhas, aparecem os telhados de Valdouro e as bocas escuras das minas.' },
     corte: { nome: 'Corte das Máscaras', livre: () => !!F().ato3_fim, pos: () => OV.regioes.corte && OV.regioes.corte.ENTRADA, yaw: 0,
-      chegada: 'Do alto da colina se ouve música. Lá embaixo, entre fontes e jardins, as luzes de Belmonte nunca se apagam.' }
+      chegada: 'Do alto da colina se ouve música. Lá embaixo, entre fontes e jardins, as luzes de Belmonte nunca se apagam.' },
+    muros: { nome: 'Vila dos Muros', livre: () => !!F().ato4_fim, pos: () => OV.regioes.muros && OV.regioes.muros.ENTRADA, yaw: 0,
+      chegada: 'A estrada do norte desce até um lago escuro. Dos dois lados, duas aldeias se olham por cima de um muro alto que corta a terra, a igreja e até a água.' },
+    marca: { nome: 'Marca Ardente', livre: () => !!F().ato5_fim, pos: () => OV.regioes.marca && OV.regioes.marca.ENTRADA, yaw: 0,
+      chegada: 'O cheiro de fumaça chega antes da fronteira. No vale, duas fortalezas queimadas se encaram por cima de um campo de cinzas, e os tambores não param.' },
+    monte: { nome: 'Monte Santo', livre: () => !!F().ato6_fim, pos: () => OV.regioes.monte && OV.regioes.monte.ENTRADA, yaw: 0,
+      chegada: 'No fim do deserto, o Monte Santo se ergue sobre um mosteiro de pedra clara. No alto, uma torre negra fura as nuvens.' }
   };
   V.livres = aqui => Object.keys(V.DEST).filter(k => k !== aqui && V.DEST[k].livre() && V.DEST[k].pos());
 
@@ -35,7 +41,7 @@
   V.textoPlaca = function (aqui) {
     const l = V.livres(aqui);
     if (!l.length) return 'Ler a placa da estrada';
-    if (l.length === 1) return l[0] === 'vale' ? 'Voltar ao Vale de Santa Sabina' : `Seguir a estrada para ${l[0] === 'porto' ? 'os Portos do Festim' : l[0] === 'minas' ? 'as Minas de Mamom' : 'a Corte das Máscaras'}`;
+    if (l.length === 1) return l[0] === 'vale' ? 'Voltar ao Vale de Santa Sabina' : `Seguir a estrada para ${({ porto: 'os Portos do Festim', minas: 'as Minas de Mamom', corte: 'a Corte das Máscaras', muros: 'a Vila dos Muros', marca: 'a Marca Ardente', monte: 'o Monte Santo' })[l[0]]}`;
     return 'Ler a placa da encruzilhada e seguir viagem';
   };
   V.usarPlaca = function (aqui) {

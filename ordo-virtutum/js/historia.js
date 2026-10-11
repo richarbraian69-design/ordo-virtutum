@@ -25,9 +25,9 @@
     { k: 'temperanca', nome: 'Lâmpada da Temperança', virtude: 'Temperança', pecado: 'Gula', terra: 'Portos do Festim', principe: 'o Senhor do Banquete', servos: 'Glutões, Corvos da Fome, Caranguejos da Gula', acesa: () => !!F().ato2_fim, ato: 2 },
     { k: 'generosidade', nome: 'Lâmpada da Generosidade', virtude: 'Generosidade', pecado: 'Avareza', terra: 'Minas de Mamom', principe: 'Mamom', servos: 'Escaravelhos, Golens de ouro, Morcegos da Avareza', acesa: () => !!F().ato3_fim, ato: 3 },
     { k: 'castidade', nome: 'Lâmpada da Castidade', virtude: 'Castidade', pecado: 'Luxúria', terra: 'Corte das Máscaras', principe: 'Asmodeu', servos: 'Mascarados, Mariposas, Reflexos, Pavões', acesa: () => !!F().ato4_fim, ato: 4 },
-    { k: 'paciencia', nome: 'Lâmpada da Paciência', virtude: 'Paciência', pecado: 'Ira', terra: 'uma terra de fronteira, ainda fechada', principe: 'Abadon, o Anjo do Abismo', servos: '?', acesa: () => false, ato: 5, futuro: true },
-    { k: 'benevolencia', nome: 'Lâmpada da Benevolência', virtude: 'Benevolência', pecado: 'Inveja', terra: 'além do mar', principe: 'Leviatã, a serpente das águas', servos: '?', acesa: () => false, ato: 6, futuro: true },
-    { k: 'humildade', nome: 'Lâmpada da Humildade', virtude: 'Humildade', pecado: 'Soberba', terra: 'o Monte Santo', principe: 'o Príncipe da Soberba, cujo nome é melhor não escrever', servos: '?', acesa: () => false, ato: 7, futuro: true }
+    { k: 'benevolencia', nome: 'Lâmpada da Benevolência', virtude: 'Benevolência', pecado: 'Inveja', terra: 'Vila dos Muros', principe: 'Leviatã, a serpente das águas', servos: 'Invejosos, Serpes do Lago, Olhos Verdes, Murmuradores', acesa: () => !!F().ato5_fim, ato: 5 },
+    { k: 'paciencia', nome: 'Lâmpada da Paciência', virtude: 'Paciência', pecado: 'Ira', terra: 'Marca Ardente', principe: 'Abadon, o Anjo do Abismo', servos: 'Soldados irados, Brasas, Cães de Guerra, Gafanhotos', acesa: () => !!F().ato6_fim, ato: 6 },
+    { k: 'humildade', nome: 'Lâmpada da Humildade', virtude: 'Humildade', pecado: 'Soberba', terra: 'o Monte Santo', principe: 'o Príncipe da Soberba, cujo nome é melhor não escrever', servos: 'Soberbos, Caídos, Sentinelas da Torre, Bodes do Monte', acesa: () => !!F().ato7_fim, ato: 7 }
   ];
   HI.acesas = () => HI.LAMPADAS.filter(l => l.acesa()).length;
 
@@ -320,7 +320,7 @@
         <span><em>Terra:</em> ${esc(conhecida ? l.terra : l.terra)}</span>
         <span><em>Príncipe:</em> ${esc(l.principe)}</span>
         ${conhecida ? `<span><em>Servos:</em> ${esc(l.servos)}</span>` : '<span class="futuro">Uma terra que ainda não se abriu.</span>'}
-        <i>${ac ? '✠ Reacesa' : l.futuro ? 'Apagada' : 'Apagada · Ato ' + ['', 'I', 'II', 'III', 'IV'][l.ato]}</i></div></li>`;
+        <i>${ac ? '✠ Reacesa' : l.futuro ? 'Apagada' : 'Apagada · Ato ' + ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][l.ato]}</i></div></li>`;
     }).join('');
     return `<div class="lp-tela">
       <div class="lp-intro"><p class="eyebrow">Livro das Sete Lâmpadas</p>
@@ -373,6 +373,7 @@
     c_lirios: ['De Mônica, a sacristã', 'Na Corte todos enfeitam a si mesmos, e ninguém enfeita o altar. Quero lírios brancos para Nosso Senhor. Crescem no jardim abandonado, a oeste, entre as mariposas.'],
     c_mausoleu: ['De Ludovico, o velho mordomo', 'Servi três duques. O último quis espelhos no túmulo, e a vaidade chocou ali dentro um basilisco. A Duquesa, que era santa, foi enterrada com um rosário simples. Ninguém pode mais rezar por ela.']
   };
+  Object.assign(CARTAS, OV.cartasExtra || {}); // v23: as cartas dos Atos V a VII
   HI.CARTAS = CARTAS;
   HI.cartaHtml = function (id) {
     let c = CARTAS[id];
@@ -387,7 +388,7 @@
   /* ===================================================================
      OS SANTOS DESCEM DO CÉU E SOBEM DE VOLTA
      =================================================================== */
-  const SANTOS = ['antao', 'nicolau', 'lourenco', 'agostinho'];
+  const SANTOS = ['antao', 'nicolau', 'lourenco', 'agostinho', 'joaoBatista', 'martinho', 'moises', 'miguel'];
   function coluna(x, z, dur, sobe) {
     const y0 = H(x, z);
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.4, 26, 18, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -461,6 +462,33 @@
     denarios: {
       oferta: () => `Dar aos pobres todos os seus denários (${P.pers.denarios || 0})`,
       aplicar: () => { F().partilha_den = (F().partilha_den || 0) + (P.pers.denarios || 0); P.pers.denarios = 0; return 'Os seus denários foram para os pobres.'; }
+    },
+    // v23: João Batista («é preciso que ele cresça e eu diminua»): um ponto da maior virtude
+    virtude: {
+      oferta: () => { const v = P.pers.virt, k = Object.keys(v).sort((a, b) => v[b] - v[a])[0]; return `Oferecer um ponto da sua maior virtude (${OV.missoes && OV.missoes.NOME_V ? OV.missoes.NOME_V[k] : k} ${v[k]} → ${v[k] - 1})`; },
+      aplicar: () => { const v = P.pers.virt, k = Object.keys(v).sort((a, b) => v[b] - v[a])[0]; if (v[k] > 1) v[k]--; C().recalcular(); P.hp = Math.min(P.hp, P.D.maxHp); P.fe = Math.min(P.fe, P.D.maxFe); return `Você diminuiu. A sua ${OV.missoes && OV.missoes.NOME_V ? OV.missoes.NOME_V[k] : k} agora é ${v[k]}.`; }
+    },
+    // v23: São Martinho: metade do manto e metade da bolsa para o soldado ferido
+    manto: {
+      oferta: () => { const m = IT.mochila(), ve = m.equip && m.equip.veste; return ve ? `Dar ao soldado ferido a sua veste (${nomeItem(ve)}) e metade dos seus denários (${Math.floor((P.pers.denarios || 0) / 2)})` : `Dar ao soldado ferido metade dos seus denários (${Math.floor((P.pers.denarios || 0) / 2)}) e o seu pão`; },
+      aplicar: () => {
+        const m = IT.mochila(), ve = m.equip && m.equip.veste; P.pers.denarios = Math.ceil((P.pers.denarios || 0) / 2);
+        if (ve) { m.equip.veste = null; C().recalcular(); IT.visual(); P.hp = Math.min(P.hp, P.D.maxHp); }
+        else if (m.itens && m.itens.pao) delete m.itens.pao;
+        IT.refresh(); return ve ? 'A sua veste e metade da sua bolsa foram para o soldado ferido.' : 'Metade da sua bolsa e o seu pão foram para o soldado ferido.';
+      }
+    },
+    // v23: Moisés tira as sandálias diante da sarça: deixar as insígnias e as lembranças de glória
+    gloria: {
+      oferta: () => { const m = IT.mochila(), ins = Object.keys(m.itens || {}).concat(Object.values(m.equip || {})).filter(id => id && OV.ITENS[id] && OV.ITENS[id].guilda && !/^arma_/.test(id)); return ins.length ? `Deixar ao pé da sarça as suas insígnias e títulos (${ins.map(nomeItem).join(', ')})` : 'Deixar ao pé da sarça o nome que conquistou: os títulos das confrarias e um nível de experiência'; },
+      aplicar: () => {
+        const m = IT.mochila(); let n = 0;
+        Object.keys(m.itens || {}).forEach(id => { if (OV.ITENS[id] && OV.ITENS[id].guilda && !/^arma_/.test(id)) { delete m.itens[id]; n++; } });
+        Object.keys(m.equip || {}).forEach(k => { const id = m.equip[k]; if (id && OV.ITENS[id] && OV.ITENS[id].guilda && !/^arma_/.test(id)) { m.equip[k] = null; n++; } });
+        F().titulos_deixados = true; C().recalcular(); IT.visual(); IT.refresh();
+        if (!n && C().perderNiveis) C().perderNiveis(1);
+        return n ? 'As suas insígnias ficaram ao pé da sarça. Ninguém ali sabe o seu nome, e é melhor assim.' : 'Os seus títulos ficaram ao pé da sarça, e você desceu um nível.';
+      }
     },
     mochila: {
       oferta: () => { const n = IT.total(); return n ? `Deixar tudo o que carrega na mochila (${n} ${n > 1 ? 'itens' : 'item'})` : 'Deixar a mochila vazia e os seus denários'; },

@@ -49,10 +49,10 @@
     } else if (OV.regioes && OV.regioes[k]) {
       const R = OV.regioes[k], X = a => a + R.OX, Z = b => b + R.OZ;
       f = {
-        id: k, nome: R.nome, cx: R.OX, cz: R.OZ, tam: R.MEIO * 2, telha: k === 'corte' ? '#4f5f82' : '#6e6258',
+        id: k, nome: R.nome, cx: R.OX, cz: R.OZ, tam: R.MEIO * 2, telha: R.TELHA || (k === 'corte' ? '#4f5f82' : '#6e6258'),
         h: (x, z) => R.relevo(x - R.OX, z - R.OZ),
         dentro: (x, z) => Math.abs(x - R.OX) < R.MEIO - 6 && Math.abs(z - R.OZ) < R.MEIO - 6,
-        agua: k === 'corte' && R.LAGO ? (x, z) => Math.hypot(x - R.OX - R.LAGO.x, z - R.OZ - R.LAGO.z) < R.LAGO.r - 2 : () => false,
+        agua: R.agua ? (x, z) => R.agua(x - R.OX, z - R.OZ) : k === 'corte' && R.LAGO ? (x, z) => Math.hypot(x - R.OX - R.LAGO.x, z - R.OZ - R.LAGO.z) < R.LAGO.r - 2 : () => false,
         estradas: R.ESTRADAS.map(Ln => Ln.map(([a, b]) => [X(a), Z(b)])),
         rects: R.RECTS.map(([a, b, w, d, r]) => [X(a), Z(b), w, d, r]),
         R
@@ -475,14 +475,14 @@
     const r = ['vale'];
     if ((prog.flags && prog.flags.ato1_fim) || (prog.visitados || []).some(k => (OV.porto && OV.porto.LOCAIS.includes(k)) || k === 'porto')) r.push('porto');
     const fl = prog.flags || {}, vis = prog.visitados || [];
-    [['minas', 'ato2_fim'], ['corte', 'ato3_fim']].forEach(([k, f]) => { const R = OV.regioes && OV.regioes[k]; if (R && (fl[f] || vis.includes(k) || vis.some(v => R.LOCAIS.includes(v)))) r.push(k); });
+    [['minas', 'ato2_fim'], ['corte', 'ato3_fim'], ['muros', 'ato4_fim'], ['marca', 'ato5_fim'], ['monte', 'ato6_fim']].forEach(([k, f]) => { const R = OV.regioes && OV.regioes[k]; if (R && (fl[f] || vis.includes(k) || vis.some(v => R.LOCAIS.includes(v)))) r.push(k); });
     return r;
   }
   MP.conhecidas = conhecidas;
   function montarAbas() {
     const rs = conhecidas();
     if (rs.length < 2) { abas.innerHTML = ''; return; }
-    abas.innerHTML = rs.map(k => `<button type="button" data-regiao="${k}" aria-pressed="${k === atual}">${({ vale: 'Vale', porto: 'Portos', minas: 'Minas', corte: 'Corte' })[k] || fonte(k).nome}</button>`).join('');
+    abas.innerHTML = rs.map(k => `<button type="button" data-regiao="${k}" aria-pressed="${k === atual}">${({ vale: 'Vale', porto: 'Portos', minas: 'Minas', corte: 'Corte', muros: 'Muros', marca: 'Marca', monte: 'Monte' })[k] || fonte(k).nome}</button>`).join('');
   }
   abas.addEventListener('click', ev => { const b = ev.target.closest('[data-regiao]'); if (!b) return; trocar(b.dataset.regiao, false); });
 
@@ -521,7 +521,7 @@
   MP._dbg = () => ({ alvos: alvosClique.map(a => a.tipo + ":" + (a.nome || a.id)), v: vista.v, ox: vista.ox, oy: vista.oy, atual });
 
   // cada lugar com nome: o tamanho e a letra mostram a importância
-  const MAIOR = { vila: 1, mosteiro: 1, praca: 1, valdouro: 1, belmonte: 1, palacio: 1 };
+  const MAIOR = { vila: 1, mosteiro: 1, praca: 1, valdouro: 1, belmonte: 1, palacio: 1, montalto: 1, valbaixo: 1, saomartinho: 1, sarca: 1, torre: 1 };
   const NATURAL = { floresta: 'bosque', lago: 'agua', farol: null, ermida: null };
   const OY = { claustro: 34, mosteiro: -46, cripta: 26, floresta: -10, vila: -78 };
   function rotulo(t, x, y, tipo, alfa) {

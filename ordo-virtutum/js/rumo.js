@@ -34,7 +34,7 @@
   const ou = (...fs) => () => { for (const f of fs) { const r = typeof f === 'function' ? f() : f; if (r) return r; } return null; };
   const temBadalo = id => ((prog() && prog().inv && prog().inv.badalos) || []).includes(id);
   const maisPerto = lista => { let best = null, bd = 1e9; lista.forEach(p => { if (!p) return; const d = Math.hypot(p.x - P.pos.x, p.z - P.pos.z); if (d < bd) { bd = d; best = p; } }); return best; };
-  const PLACAS = { vale: xz(2, 187), porto: xz(2, 573), minas: xz(-897, 148), corte: xz(3, -752) };
+  const PLACAS = { vale: xz(2, 187), porto: xz(2, 573), minas: xz(-897, 148), corte: xz(3, -752), muros: xz(3, -1652), marca: xz(-897, -752), monte: xz(-1797, 148) };
   const SAIDA_CRIPTA = xz(300, 59), ENTRADA_CRIPTA = xz(25, -12);
   const qtd = id => OV.itens ? OV.itens.qtd(id) : 0;
 
@@ -84,7 +84,8 @@
     const fn = lista[Math.min(st.e, lista.length - 1)];
     let p = null; try { p = fn ? fn() : null; } catch (e) { p = null; }
     // a etapa de "ir até outra região": o alvo é a própria região
-    if (!p && (id === 'a3m1' || id === 'a4m1') && st.e === 0) p = id === 'a3m1' ? (OV.regioes.minas ? OV.regioes.minas.ENTRADA : null) : (OV.regioes.corte ? OV.regioes.corte.ENTRADA : null);
+    const REG1 = { a3m1: 'minas', a4m1: 'corte', a5m1: 'muros', a6m1: 'marca', a7m1: 'monte' };
+    if (!p && REG1[id] && st.e === 0) { const RG = OV.regioes[REG1[id]]; p = RG ? RG.ENTRADA : null; }
     return p ? { x: p.x, z: p.z } : null;
   };
   // para onde andar agora: se a etapa é em outra região, a placa da estrada; se é na cripta, a porta dela
@@ -97,7 +98,7 @@
     const pl = PLACAS[rj]; if (!pl) return null;
     return { x: pl.x, z: pl.z, via: rp === 'cripta' ? 'vale' : rp };
   };
-  const NOME_REG = { vale: 'Vale de Santa Sabina', porto: 'Portos do Festim', minas: 'Minas de Mamom', corte: 'Corte das Máscaras', cripta: 'cripta' };
+  const NOME_REG = { vale: 'Vale de Santa Sabina', porto: 'Portos do Festim', minas: 'Minas de Mamom', corte: 'Corte das Máscaras', muros: 'Vila dos Muros', marca: 'Marca Ardente', monte: 'Monte Santo', cripta: 'cripta' };
   R.textoVia = a => !a || !a.via ? '' : a.via === 'saida' ? 'Suba da cripta para o mosteiro.' : a.via === 'cripta' ? 'Desça pela porta da cripta, a leste do claustro.' : `Siga até a placa da estrada e viaje para ${NOME_REG[a.via] === 'Vale de Santa Sabina' ? 'o ' : 'os '}${NOME_REG[a.via]}.`.replace('os Minas', 'as Minas').replace('os Corte', 'a Corte');
 
   /* ================= A MISSÃO RASTREADA ================= */

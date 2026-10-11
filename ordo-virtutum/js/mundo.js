@@ -375,10 +375,11 @@
   M.nomeZona = k => k === 'vale' ? 'Vale de Santa Sabina' : (M.LOCAIS[k] ? M.LOCAIS[k].nome : k);
   M.regiao = (x, z) => { const R = M.regiaoEm(x, z); return R ? R.id : z > 400 ? 'porto' : x > 200 ? 'cripta' : 'vale'; };
   // número do ato de cada região (para o rastreador de missões)
-  M.atoDaRegiao = k => ({ vale: 1, cripta: 1, porto: 2, minas: 3, corte: 4 })[k] || 1;
+  M.atoDaRegiao = k => ({ vale: 1, cripta: 1, porto: 2, minas: 3, corte: 4, muros: 5, marca: 6, monte: 7 })[k] || 1;
 
   // a Casa do Peregrino de cada região (construída em casa.js): o lugar é reservado já aqui, para nada nascer dentro dela
-  M.CASAS_PEREGRINO = [['vale', 18, 96, -0.322], ['porto', -29, 655, Math.PI / 2], ['minas', -920, 1, 0.227], ['corte', -19, -893, 0.237]];
+  M.CASAS_PEREGRINO = [['vale', 18, 96, -0.322], ['porto', -29, 655, Math.PI / 2], ['minas', -920, 1, 0.227], ['corte', -19, -893, 0.237],
+    ['muros', 30, -1672, -Math.PI / 2], ['marca', -936, -772, Math.PI / 2], ['monte', -1766, 128, -Math.PI / 2]];
   M.RECTS = M.RECTS || [];
   M.CASAS_PEREGRINO.forEach(([, x, z, rot]) => { const r = [x, z, 13, 11, rot]; r.reserva = true; M.RECTS.push(r); });
   M.PREVIEW = { x: 0, z: 9 };

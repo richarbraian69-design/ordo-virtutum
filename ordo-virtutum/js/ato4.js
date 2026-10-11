@@ -367,6 +367,7 @@
           texto: 'A Lâmpada da Castidade arde na torre do Palácio de Belmonte. A quarta das sete lâmpadas de Albária foi reacesa.',
           cite: 'Mais ao norte, na Vila dos Muros, as aldeias ergueram muralhas umas contra as outras, e ninguém suporta a alegria do vizinho. A peregrinação continua.'
         });
+        if (MS.aposAto4) MS.aposAto4();
       }, 2600);
     });
   }

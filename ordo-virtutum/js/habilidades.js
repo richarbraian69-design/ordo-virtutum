@@ -136,6 +136,8 @@
   H.tem = id => { const h = H.lista().find(x => x.id === id); return !!(h && P.pers && P.pers.nivel >= h.nivel); };
   H.ativas = () => H.lista().filter(h => h.tecla);
   H.buff = id => (H.buffs[id] && H.buffs[id].t > 0) ? H.buffs[id] : null;
+  // a Inveja tira bênçãos de uma vez: desfaz o que cada uma deixava visível
+  H.aoPerderBuffs = ks => ks.forEach(k => { if (k === 'suma') H.suma = 0; if (k === 'asas' && typeof asasVisuais === 'function') asasVisuais(false); if (k === 'comigo') { P.oculto = 0; if (typeof fantasma === 'function') fantasma(false); } });
   function darBuff(id, dur, extra) { H.buffs[id] = Object.assign({ t: dur, dur }, extra || {}); }
   const vivos = () => I().vivos();
   const dist = e => Math.hypot(e.g.position.x - P.pos.x, e.g.position.z - P.pos.z);

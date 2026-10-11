@@ -345,6 +345,7 @@
     gaiola: () => { const g = PROPS.gaiola(); g.position.y = 0.2; const w = new THREE.Group(); w.add(g); return w; },
     alaude: () => { const g = PROPS.alaude(); g.position.y = 0.15; g.rotation.z = 1.4; const w = new THREE.Group(); w.add(g); return w; }
   };
+  AV.MODELOS = MODELOS; // v23: os atos novos somam os seus achados
   AV.coleta = function (cfg) {
     cfg.objs = [];
     cfg.pontos.forEach(([x, z], i) => {

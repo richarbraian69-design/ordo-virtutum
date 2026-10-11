@@ -12,7 +12,7 @@
 
   const R = OV.criarRegiao({
     id: 'minas', nome: 'Minas de Mamom', OX: -900, OZ: 0, meio: 170,
-    dentro: (x, z) => x < -500,
+    dentro: (x, z) => x < -500 && x > -1350 && z > -450, // v23: ao norte fica a Marca Ardente; a oeste, o Monte Santo
     relevo(lx, lz) {
       let h = 3 + 2.2 * Math.sin(lx * 0.045) * Math.cos(lz * 0.04) + 1.0 * Math.sin(lx * 0.11 + lz * 0.09);
       const bord = Math.max(Math.abs(lx), Math.abs(lz));

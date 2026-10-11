@@ -24,11 +24,15 @@
     pena: ['Pena de Corvo', 'corvo'], banha: ['Banha da Gula', 'larva_gula'], carapaca: ['Carapaça da Gula', 'caranguejo'], tinta: ['Tinta do Polvo', 'polvo'], taca: ['Taça do Banquete', 'senhor'],
     elitro: ['Élitro de Ouro', 'escaravelho'], pedraGolem: ['Coração de Golem', 'golem'], asa: ['Asa de Morcego', 'morcego'], chifreBezerro: ['Chifre do Bezerro de Ouro', 'bezerro'], moedaMamom: ['Moeda de Mamom', 'mamom'],
     seda: ['Seda de Mariposa', 'mariposa'], caco: ['Caco de Espelho', 'reflexo'], pluma: ['Pluma de Pavão', 'pavao'], olhoBasilisco: ['Olho do Basilisco', 'basilisco'], mascaraAsmodeu: ['Máscara de Asmodeu', 'asmodeu'],
-    escamaSede: ['Escama da Sede', 'sede']
+    escamaSede: ['Escama da Sede', 'sede'],
+    // v23: Atos V a VII
+    escamaSerpe: ['Escama de Serpe', 'serpe'], olhoVerde: ['Olho Verde', 'olho'], pedraMuro: ['Pedra do Muro', 'muralha'], cabecaHidra: ['Cabeça da Hidra', 'hidra'], escamaLeviata: ['Escama de Leviatã', 'leviata'],
+    brasaViva: ['Brasa Viva', 'brasa'], presaCao: ['Presa de Cão de Guerra', 'cao'], asaGafanhoto: ['Asa de Gafanhoto', 'gafanhoto'], cinzaGigante: ['Cinza do Gigante', 'gigante'], coroaAbadon: ['Coroa de Abadon', 'abadon'],
+    penaCaida: ['Pena Caída', 'caido'], chifreBode: ['Chifre de Bode', 'bode'], pedraSentinela: ['Pedra da Sentinela', 'sentinela'], cetroPrincipe: ['Cetro do Príncipe', 'principe']
   };
   OF.MAT = MAT;
   const DROP = {}; for (const k in MAT) DROP[MAT[k][1]] = k;
-  Object.assign(DROP, { lobo: 'pelo', glutao: 'banha', mineiro: 'elitro', espelho: 'caco', espelho_baile: 'caco', mascarado: 'seda' });
+  Object.assign(DROP, { lobo: 'pelo', glutao: 'banha', mineiro: 'elitro', espelho: 'caco', espelho_baile: 'caco', mascarado: 'seda', invejoso: 'olhoVerde', irado: 'brasaViva', soberbo: 'penaCaida' });
   const bolsa = () => { const p = P.pers; if (!p) return {}; if (!p.materiais) p.materiais = {}; return p.materiais; };
   OF.bolsa = bolsa;
   OF.qtd = k => bolsa()[k] || 0;
@@ -44,28 +48,29 @@
     const ch = chefe ? 1 : d.variante === 'elite' ? 1 : d.variante === 'forte' ? 0.45 : 0.2;
     if (Math.random() < ch) OF.dar(k, chefe ? 1 : (d.variante === 'elite' ? 2 : 1));
     // os chefões principais também deixam um pergaminho
-    if (chefe && ['meiodia', 'senhor', 'mamom', 'asmodeu'].includes(d.key)) setTimeout(() => darPergaminho(), 1200);
+    if (chefe && ['meiodia', 'senhor', 'mamom', 'asmodeu', 'leviata', 'abadon', 'principe'].includes(d.key)) setTimeout(() => darPergaminho(), 1200);
   };
 
   /* ===================================================================
      AS ARMAS DE CADA ORDEM
      =================================================================== */
   const NOMES = {
-    espada: ['Espada de ferro abençoado', 'Espada do Mosteiro', 'Espada de São Dunstano'],
-    cajado: ['Cajado de freixo abençoado', 'Cajado do Mosteiro', 'Cajado de São Dunstano'],
-    pregacao: ['Breviário de capa de ferro', 'Breviário do Mosteiro', 'Breviário de São Dunstano'],
-    aspersorio: ['Aspersório de ferro abençoado', 'Aspersório do Mosteiro', 'Aspersório de São Dunstano'],
-    adaga: ['Adaga de ferro abençoado', 'Adaga do Mosteiro', 'Adaga de São Dunstano'],
-    machado: ['Machado de ferro abençoado', 'Machado do Mosteiro', 'Machado de São Dunstano'],
-    cantico: ['Lira de cordas de bronze', 'Lira do Mosteiro', 'Lira de São Dunstano'],
-    arco: ['Arco de teixo abençoado', 'Arco do Mosteiro', 'Arco de São Dunstano'],
-    luz: ['Rosário de contas de ferro', 'Rosário do Mosteiro', 'Rosário de São Dunstano'],
-    crucifixo: ['Crucifixo de ferro abençoado', 'Crucifixo do Mosteiro', 'Crucifixo de São Dunstano']
+    espada: ['Espada de ferro abençoado', 'Espada do Mosteiro', 'Espada de São Dunstano', 'Espada de Santo Elói'],
+    cajado: ['Cajado de freixo abençoado', 'Cajado do Mosteiro', 'Cajado de São Dunstano', 'Cajado de Santo Elói'],
+    pregacao: ['Breviário de capa de ferro', 'Breviário do Mosteiro', 'Breviário de São Dunstano', 'Breviário de Santo Elói'],
+    aspersorio: ['Aspersório de ferro abençoado', 'Aspersório do Mosteiro', 'Aspersório de São Dunstano', 'Aspersório de Santo Elói'],
+    adaga: ['Adaga de ferro abençoado', 'Adaga do Mosteiro', 'Adaga de São Dunstano', 'Adaga de Santo Elói'],
+    machado: ['Machado de ferro abençoado', 'Machado do Mosteiro', 'Machado de São Dunstano', 'Machado de Santo Elói'],
+    cantico: ['Lira de cordas de bronze', 'Lira do Mosteiro', 'Lira de São Dunstano', 'Lira de Santo Elói'],
+    arco: ['Arco de teixo abençoado', 'Arco do Mosteiro', 'Arco de São Dunstano', 'Arco de Santo Elói'],
+    luz: ['Rosário de contas de ferro', 'Rosário do Mosteiro', 'Rosário de São Dunstano', 'Rosário de Santo Elói'],
+    crucifixo: ['Crucifixo de ferro abençoado', 'Crucifixo do Mosteiro', 'Crucifixo de São Dunstano', 'Crucifixo de Santo Elói']
   };
   const GRAUS = [
     { mods: { dano: 1.15 }, descr: '+15% de dano.' },
     { mods: { dano: 1.3, fe: 10 }, descr: '+30% de dano e +10 de Fé máxima. Forjada com um «insight» da oração dos monges.' },
-    { mods: { dano: 1.48, danoDemonio: 1.1, fe: 15 }, descr: '+48% de dano, +10% contra os demônios e +15 de Fé máxima. São Dunstano prendeu o diabo com as tenazes da forja.' }
+    { mods: { dano: 1.48, danoDemonio: 1.1, fe: 15 }, descr: '+48% de dano, +10% contra os demônios e +15 de Fé máxima. São Dunstano prendeu o diabo com as tenazes da forja.' },
+    { mods: { dano: 1.7, danoDemonio: 1.15, fe: 20, hp: 20 }, descr: '+70% de dano, +15% contra os demônios, +20 de Fé e +20 de vida máximas. Santo Elói, ourives e bispo, forjava cálices para o altar e correntes partidas para os cativos.' }
   ];
   if (IT.SLOTS && !IT.SLOTS.some(s => s[0] === 'arma')) IT.SLOTS.unshift(['arma', 'Arma']);
   for (const tipo in NOMES) NOMES[tipo].forEach((nome, n) => {
@@ -199,6 +204,17 @@
   };
   MS.ARV.dunstano = () => menuFerreiro(cfgDun);
   OF.FERREIROS = { lia: cfgLia, eustaquio: cfgEust, dunstano: cfgDun };
+
+  /* ---- v23: Mestre Teobaldo, na Vila de São Martinho (Ato VI). Depois que as espadas do Campo das Cinzas viram arados,
+     ele forja o grau de Santo Elói, com os materiais dos Atos V e VI ---- */
+  if (OV.marca && OV.marca.FORJA_TEO && M.figuras.teobaldo) {
+    OF.FERREIROS.teobaldo = {
+      npc: 'teobaldo', forja: OV.marca.FORJA_TEO,
+      saudacao: () => 'Santo Elói era ourives antes de ser bispo. Fazia cálices para o altar e, com o ouro que sobrava, comprava cativos no mercado para libertá-los. Ferro bom é o que serve à vida.',
+      dica: 'Para o grau de Santo Elói: uma escama de Leviatã, do lago da Vila dos Muros; olhos verdes dos invejosos de lá; presas dos cães de guerra e brasas vivas, aqui da Marca. A têmpera é na água do Rio Rubro.',
+      receitas: [{ item: () => OF.idArma(4), den: 260, mats: { escamaLeviata: 1, olhoVerde: 2, presaCao: 3, brasaViva: 3 }, mostrar: () => MS.feita('a6s3'), fala: 'Bati esta com o mesmo martelo dos arados. Que ela só se levante contra o mal, e nunca contra um irmão.' }]
+    };
+  }
 
   /* ===================================================================
      O ANJO DA GUARDA, QUANDO É CHAMADO

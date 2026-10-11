@@ -10,7 +10,7 @@
   /* ---- os temas ----
      raiz: a nota-base (Hz) · modo: os intervalos da escala · bordao: múltiplos da raiz · voz: o instrumento da melodia
      acomp: o acompanhamento · passo: a duração do tempo (s) · pausa: o silêncio entre as frases · leito: o som de fundo */
-  const MODOS = { dorico: [0, 2, 3, 5, 7, 9, 10], frigio: [0, 1, 3, 5, 7, 8, 10], lidio: [0, 2, 4, 6, 7, 9, 11], mixolidio: [0, 2, 4, 5, 7, 9, 10], eolio: [0, 2, 3, 5, 7, 8, 10], jonio: [0, 2, 4, 5, 7, 9, 11] };
+  const MODOS = { hijaz: [0, 1, 4, 5, 7, 8, 10], dorico: [0, 2, 3, 5, 7, 9, 10], frigio: [0, 1, 3, 5, 7, 8, 10], lidio: [0, 2, 4, 6, 7, 9, 11], mixolidio: [0, 2, 4, 5, 7, 9, 10], eolio: [0, 2, 3, 5, 7, 8, 10], jonio: [0, 2, 4, 5, 7, 9, 11] };
   const TEMAS = {
     vale: { raiz: 146.83, modo: 'dorico', bordao: [0.5, 0.75], bordaoTipo: 'serra', voz: 'canto', acomp: null, passo: 0.62, pausa: [3, 6], leito: 'vento', vol: 0.9 },
     mosteiro: { raiz: 146.83, modo: 'dorico', bordao: [0.5, 0.75, 1], bordaoTipo: 'orgao', voz: 'coro', acomp: null, passo: 0.75, pausa: [2.5, 4], leito: null, vol: 1 },
@@ -26,6 +26,15 @@
     corte: { raiz: 220, modo: 'jonio', bordao: [0.5], bordaoTipo: 'seno', voz: 'flauta', acomp: 'harpa', passo: 0.34, pausa: [1.5, 3], leito: null, vol: 0.8, danca: true },
     palacio: { raiz: 207.65, modo: 'eolio', bordao: [0.5, 0.71], bordaoTipo: 'orgao', voz: 'harpa', acomp: 'valsa', passo: 0.4, pausa: [1, 2], leito: null, vol: 0.8 },
     jardim: { raiz: 196, modo: 'lidio', bordao: [0.5], bordaoTipo: 'seno', voz: 'flauta', acomp: 'harpa', passo: 0.55, pausa: [3, 6], leito: 'agua', extra: 'passaros', vol: 0.75 },
+    muros: { raiz: 164.81, modo: 'mixolidio', bordao: [0.5, 0.75], bordaoTipo: 'serra', voz: 'charamela', acomp: 'alaude', passo: 0.4, pausa: [2, 3.5], leito: 'vento', vol: 0.8 },
+    lagoPartido: { raiz: 98, modo: 'eolio', bordao: [0.5, 0.75], bordaoTipo: 'seno', voz: 'flautaGrave', acomp: null, passo: 0.85, pausa: [4, 8], leito: 'agua', vol: 0.75 },
+    precursor: { raiz: 146.83, modo: 'dorico', bordao: [0.5, 0.75], bordaoTipo: 'seno', voz: 'canto', acomp: null, passo: 0.8, pausa: [4, 7], leito: 'agua', extra: 'passaros', vol: 0.85, solo: true },
+    marca: { raiz: 110, modo: 'eolio', bordao: [0.5, 0.75], bordaoTipo: 'serra', voz: 'charamela', acomp: 'tambor', passo: 0.46, pausa: [2, 4], leito: 'vento', vol: 0.8 },
+    cinzas: { raiz: 87.31, modo: 'frigio', bordao: [0.5, 0.707], bordaoTipo: 'serra', voz: 'coroGrave', acomp: 'tamborGuerra', passo: 0.7, pausa: [3, 6], leito: 'ventoForte', vol: 0.75 },
+    hospital: { raiz: 130.81, modo: 'jonio', bordao: [0.5, 0.75], bordaoTipo: 'orgao', voz: 'coro', acomp: null, passo: 0.85, pausa: [2.5, 4.5], leito: null, vol: 0.85 },
+    sarca: { raiz: 146.83, modo: 'hijaz', bordao: [0.5, 0.75, 1], bordaoTipo: 'orgao', voz: 'coro', acomp: null, passo: 0.8, pausa: [2, 4], leito: null, vol: 0.9 },
+    monte: { raiz: 164.81, modo: 'hijaz', bordao: [0.5, 0.75], bordaoTipo: 'serra', voz: 'canto', acomp: 'alaude', passo: 0.55, pausa: [3, 6], leito: 'ventoForte', vol: 0.8 },
+    torre: { raiz: 77.78, modo: 'frigio', bordao: [0.5, 0.707], bordaoTipo: 'orgao', voz: 'coroGrave', acomp: null, passo: 0.95, pausa: [3, 6], leito: 'ventoForte', vol: 0.85 },
     chefe: { raiz: 73.42, modo: 'frigio', bordao: [1, 1.414], bordaoTipo: 'serra', voz: 'coroGrave', acomp: 'tamborGuerra', passo: 0.5, pausa: [0.6, 1.4], leito: null, vol: 1 }
   };
   A.TEMAS = TEMAS;
@@ -35,7 +44,10 @@
     mina: 'sombrio', acampamento: 'sombrio', cripta: 'mosteiro', ossuario: 'cripta', sala: 'cripta', camara: 'cripta', vale: 'vale',
     nicolau: 'mosteiro', farol: 'ermida', praca: 'porto', mercado: 'porto', celeiros: 'porto', barao: 'porto', pobres: 'sombrio', cais: 'porto', porto: 'porto',
     valdouro: 'valdouro', contas: 'valdouro', boca: 'sombrio', galeria: 'sombrio', acamp_min: 'valdouro', barbara: 'capela', cava: 'sombrio', minas: 'valdouro',
-    belmonte: 'corte', palacio: 'palacio', espelhos: 'jardim', lago: 'jardim', figueira: 'jardim', corte: 'corte'
+    belmonte: 'corte', palacio: 'palacio', espelhos: 'jardim', lago: 'jardim', figueira: 'jardim', corte: 'corte',
+    muros: 'muros', montalto: 'muros', valbaixo: 'muros', igreja_joao: 'capela', lago_partido: 'lagoPartido', vau: 'precursor', moinho_muros: 'muros',
+    marca: 'marca', saomartinho: 'vila', hospital: 'hospital', igreja_martinho: 'capela', capela_marco: 'capela', cinzas: 'cinzas', rocaforte: 'marca', valverde: 'marca', ponte: 'precursor',
+    monte: 'monte', sarca: 'sarca', subida: 'monte', cume: 'ermida', torre: 'torre', pedreira: 'sombrio'
   };
   A.LUGAR = LUGAR;
   A.temaDoLugar = z => LUGAR[z] || 'vale';

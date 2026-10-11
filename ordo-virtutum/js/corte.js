@@ -12,7 +12,7 @@
 
   const R = OV.criarRegiao({
     id: 'corte', nome: 'Corte das Máscaras', OX: 0, OZ: -900, meio: 170,
-    dentro: (x, z) => z < -500 && x > -500,
+    dentro: (x, z) => z < -500 && z > -1350 && x > -500, // v23: ao norte, depois de z = -1350, começa a Vila dos Muros
     relevo(lx, lz) {
       let h = 2 + 1.4 * Math.sin(lx * 0.035) * Math.cos(lz * 0.03) + 0.6 * Math.sin(lx * 0.09 + lz * 0.07);
       const bord = Math.max(Math.abs(lx), Math.abs(lz));

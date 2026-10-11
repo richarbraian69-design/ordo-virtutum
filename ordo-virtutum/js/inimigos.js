@@ -192,6 +192,7 @@
   const CLAUSTRO = { ira: 7, preguica: 7, soberba: 7, possesso: 6 };
   I.CHEFES = CHEFES;
   const CENTROS = [{ x: 0, z: 150 }, { x: 0, z: 697 }, { x: -900, z: 58 }, { x: 0, z: -840 }];
+  I.CENTROS = CENTROS; // as regiões dos Atos V a VII somam as suas vilas
   I.distVila = (x, z) => Math.min(...CENTROS.map(c => Math.hypot(x - c.x, z - c.z)));
   I.perigo = (x, z) => Math.max(0, Math.min(7, Math.floor((I.distVila(x, z) - 45) / 22)));
   function endurecer(base, def, x, z, opts) {

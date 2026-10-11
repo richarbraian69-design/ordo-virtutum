@@ -271,7 +271,8 @@
     for (const c of M.interiores) {
       const dx = P.pos.x - c.x, dz = P.pos.z - c.z;
       let dentro = false;
-      if (Math.abs(dx) < 14 && Math.abs(dz) < 14) { const lx = dx * c.cs - dz * c.sn, lz = dx * c.sn + dz * c.cs; dentro = Math.abs(lx) < c.hw && Math.abs(lz) < c.hd; }
+      const lim = Math.max(14, c.hw + 1, c.hd + 1); // v21: salões grandes (o do baile tem 36 x 44 m)
+      if (Math.abs(dx) < lim && Math.abs(dz) < lim) { const lx = dx * c.cs - dz * c.sn, lz = dx * c.sn + dz * c.cs; dentro = Math.abs(lx) < c.hw && Math.abs(lz) < c.hd; }
       if (dentro === c.dentro) continue;
       c.dentro = dentro; c.telhado.visible = !dentro; c.verga.visible = !dentro; if (c.ornato) c.ornato.visible = !dentro;
       M.interiorAtual = dentro ? c : (M.interiorAtual === c ? null : M.interiorAtual);

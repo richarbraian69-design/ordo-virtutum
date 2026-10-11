@@ -236,7 +236,10 @@
   /* ---- os mundos salvos (v22): até 3 individuais e até 3 de co-op, cada um separado ---- */
   ui.atoDe = function (save) {
     const f = (save && save.prog && save.prog.flags) || {};
-    if (f.ato4_fim) return ['Ato IV concluído', 'A Lâmpada da Castidade'];
+    if (f.ato7_fim) return ['Peregrinação concluída', 'As Sete Lâmpadas'];
+    if (f.ato6_fim) return ['Ato VII', 'O Monte Santo'];
+    if (f.ato5_fim) return ['Ato VI', 'A Marca Ardente'];
+    if (f.ato4_fim) return ['Ato V', 'A Vila dos Muros'];
     if (f.ato3_fim) return ['Ato IV', 'A Corte das Máscaras'];
     if (f.ato2_fim) return ['Ato III', 'As Minas de Mamom'];
     if (f.ato1_fim) return ['Ato II', 'Os Portos do Festim'];

@@ -22,7 +22,7 @@ window.OV = window.OV || {};
     { k: 'caridade', nome: 'Caridade', tipo: 'Teologais' }
   ];
   OV.MAX_VIRTUDE = 20;
-  OV.NIVEL_MAX = 20;
+  OV.NIVEL_MAX = 30; // v23: os Atos V a VII levam as criaturas até o nível 26
   OV.xpParaProximo = n => Math.round(175 * Math.pow(n, 1.42)); // cada nível pede bem mais que o anterior (v18: subir ficou mais difícil)
 
   OV.ORDENS = {
@@ -213,7 +213,8 @@ window.OV = window.OV || {};
     soberba: { label: 'Soberba', desc: 'não consegue rezar', dur: 7 },
     gula: { label: 'Gula', desc: 'curas pela metade e o fôlego se esvai', dur: 7 },
     avareza: { label: 'Avareza', desc: 'não consegue usar itens (dar esmola num Oratório purifica)', dur: 9 },
-    luxuria: { label: 'Luxúria', desc: 'visão turva e câmera instável', dur: 7 }
+    luxuria: { label: 'Luxúria', desc: 'visão turva e câmera instável', dur: 7 },
+    inveja: { label: 'Inveja', desc: 'as suas bênçãos passam para o vício que a lançou (o Oratório, a água benta e o Hino purificam)', dur: 8 }
   };
 
   OV.ORACOES = [

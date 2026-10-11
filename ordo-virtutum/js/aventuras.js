@@ -474,12 +474,15 @@
     ] });
 
   /* ================= OS BAÚS ================= */
-  const CENTRO = { vale: { x: 0, z: 0 }, porto: { x: 0, z: 680 }, minas: { x: -900, z: 0 }, corte: { x: 0, z: -900 } };
+  const CENTRO = { vale: { x: 0, z: 0 }, porto: { x: 0, z: 680 }, minas: { x: -900, z: 0 }, corte: { x: 0, z: -900 }, muros: { x: 0, z: -1780 }, marca: { x: -900, z: -880 }, monte: { x: -1800, z: 40 } };
   const CONT = {
     vale: { den: [6, 18], guarda: [['diabrete', 4], ['larva', 4], ['lobo_cinza', 4], ['murmurador', 5]] },
     porto: { den: [14, 30], guarda: [['corvo', 9], ['larva_gula', 9], ['caranguejo', 9]] },
     minas: { den: [20, 38], guarda: [['escaravelho', 12], ['morcego', 12], ['golem', 12]] },
-    corte: { den: [26, 46], guarda: [['mariposa', 15], ['pavao', 15], ['reflexo', 15]] }
+    corte: { den: [26, 46], guarda: [['mariposa', 15], ['pavao', 15], ['reflexo', 15]] },
+    muros: { den: [32, 54], guarda: [['serpe', 18], ['olho', 18], ['murmurador', 18]] },
+    marca: { den: [38, 62], guarda: [['brasa', 21], ['cao', 21], ['irado', 21]] },
+    monte: { den: [44, 70], guarda: [['caido', 24], ['bode', 24], ['sentinela', 24]] }
   };
   const LOTE = [[['pao', 1]], [['agua', 1]], [['vela', 1]], [['pao', 2]], [['agua', 1], ['vela', 1]], [['pao', 1], ['agua', 1]]];
   Object.keys(BAUS).forEach(reg => BAUS[reg].forEach(([x, z], i) => {
@@ -531,6 +534,9 @@
     avancar0.call(MS, id, e);
     if (id === 'a4s3' && e === 1 && antes === 0 && MS.etapa(id) === 1) AV.entregar({ npc: 'sebastiao', prop: 'carta', acao: 'ler', dur: 2.6 });
   };
+
+  // v23: as ajudas também servem aos atos V a VII
+  AV.ajuda = { proximo, conta, entradaDe, ligarMasmorra, jaFeita, naCasa, casaNome, altarzinho, ondeFig, caldeirao, fogueira };
 
   /* ================= LIGAR TUDO ================= */
   MS.ganchos.aplicar.push(acertar);

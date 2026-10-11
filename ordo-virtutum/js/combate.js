@@ -324,6 +324,15 @@
     if (H) H.aoFerido(dmg);
     if (P.praying && !(H && H.recolhimentoFirme())) { P.praying = false; P.prayT = 0; P.prayLock = 1; }
     if (P.oratT > 0) { P.oratT = 0; ui.toast('A oração foi interrompida.'); }
+    // a Inveja: quem a lança fica com as bênçãos ativas do peregrino (e bate mais forte com elas)
+    if (status === 'inveja' && H && H.buffs) {
+      const ks = Object.keys(H.buffs).filter(k => H.buffs[k].t > 0);
+      if (ks.length) {
+        ks.forEach(k => { delete H.buffs[k]; }); if (H.aoPerderBuffs) H.aoPerderBuffs(ks);
+        if (fonte && fonte.def && fonte.state !== 'dead') { fonte.def = Object.assign({}, fonte.def, { dmg: Math.round(fonte.def.dmg * (1 + 0.15 * ks.length)) }); fonte.invejou = (fonte.invejou || 0) + ks.length; fonte.flash = 0.3; }
+        ui.toast(ks.length > 1 ? 'A Inveja roubou as suas bênçãos, e o vício ficou com elas.' : 'A Inveja roubou a sua bênção, e o vício ficou com ela.');
+      }
+    }
     const durStatus = status && OV.STATUS[status] ? (H ? H.durStatus(status, OV.STATUS[status].dur) : OV.STATUS[status].dur) : 0;
     if (durStatus > 0) {
       P.status[status] = Math.max(P.status[status] || 0, durStatus);
