@@ -8,14 +8,14 @@
   OV.tempo = T;
 
   // quadros-chave do céu ao longo do dia
-  const NOITE = { ceu: 0x181018, n: 28, f: 100, amb: 0x4a3644, ai: 0.72, hs: 0x5a6488, hg: 0x22140e, hi: 0.48, luz: 0x9aa6d4, li: 0.62, est: 1, vela: 1, bras: 0.85, casa: 1 };
-  const AURORA = { ceu: 0x5a3442, n: 26, f: 96, amb: 0x523436, ai: 0.62, hs: 0x8a7084, hg: 0x2a1812, hi: 0.45, luz: 0xff9466, li: 0.7, est: 0.3, vela: 0.85, bras: 0.6, casa: 0.45 };
-  const MANHA = { ceu: 0x9c8e8a, n: 34, f: 125, amb: 0x6a5850, ai: 0.66, hs: 0xb4b6c2, hg: 0x3a2c20, hi: 0.6, luz: 0xffd6ae, li: 1.0, est: 0, vela: 0.45, bras: 0.25, casa: 0 };
-  const DIA = { ceu: 0xa4afb2, n: 42, f: 150, amb: 0x6e6258, ai: 0.7, hs: 0xc4ccd6, hg: 0x3a3024, hi: 0.72, luz: 0xfff0d6, li: 1.25, est: 0, vela: 0.35, bras: 0.15, casa: 0 };
-  const TARDE = { ceu: 0xb08660, n: 36, f: 130, amb: 0x6a4c3c, ai: 0.66, hs: 0xc4a07e, hg: 0x3a2418, hi: 0.6, luz: 0xffae6a, li: 1.0, est: 0, vela: 0.5, bras: 0.3, casa: 0 };
-  const OCASO = { ceu: 0x5e2e30, n: 28, f: 100, amb: 0x4e2c32, ai: 0.62, hs: 0x7a5066, hg: 0x22100e, hi: 0.45, luz: 0xff7044, li: 0.7, est: 0.35, vela: 0.9, bras: 0.6, casa: 0.7 };
+  const NOITE = { topo: 0x0c0c22, ceu: 0x181018, n: 28, f: 100, amb: 0x4a3644, ai: 0.72, hs: 0x5a6488, hg: 0x22140e, hi: 0.48, luz: 0x9aa6d4, li: 0.62, est: 1, vela: 1, bras: 0.85, casa: 1 };
+  const AURORA = { topo: 0x34407a, ceu: 0x5a3442, n: 26, f: 96, amb: 0x523436, ai: 0.62, hs: 0x8a7084, hg: 0x2a1812, hi: 0.45, luz: 0xff9466, li: 0.7, est: 0.3, vela: 0.85, bras: 0.6, casa: 0.45 };
+  const MANHA = { topo: 0x5d8cc8, ceu: 0x9c8e8a, n: 34, f: 125, amb: 0x6a5850, ai: 0.66, hs: 0xb4b6c2, hg: 0x3a2c20, hi: 0.6, luz: 0xffd6ae, li: 1.0, est: 0, vela: 0.45, bras: 0.25, casa: 0 };
+  const DIA = { topo: 0x4a8ad8, ceu: 0xb6c4ce, n: 42, f: 150, amb: 0x6e6258, ai: 0.7, hs: 0xc4ccd6, hg: 0x3a3024, hi: 0.72, luz: 0xfff0d6, li: 1.25, est: 0, vela: 0.35, bras: 0.15, casa: 0 };
+  const TARDE = { topo: 0x587cb8, ceu: 0xb08660, n: 36, f: 130, amb: 0x6a4c3c, ai: 0.66, hs: 0xc4a07e, hg: 0x3a2418, hi: 0.6, luz: 0xffae6a, li: 1.0, est: 0, vela: 0.5, bras: 0.3, casa: 0 };
+  const OCASO = { topo: 0x2c2c5a, ceu: 0x5e2e30, n: 28, f: 100, amb: 0x4e2c32, ai: 0.62, hs: 0x7a5066, hg: 0x22100e, hi: 0.45, luz: 0xff7044, li: 0.7, est: 0.35, vela: 0.9, bras: 0.6, casa: 0.7 };
   const K = [[0, NOITE], [4.5, NOITE], [5.8, AURORA], [7.2, MANHA], [9, DIA], [16, DIA], [17.6, TARDE], [19, OCASO], [20.4, NOITE], [24, NOITE]];
-  const CORES = ['ceu', 'amb', 'hs', 'hg', 'luz'];
+  const CORES = ['topo', 'ceu', 'amb', 'hs', 'hg', 'luz'];
 
   const ca = new THREE.Color(), cb = new THREE.Color();
   const atual = {};
@@ -58,6 +58,17 @@
     if (ui && frases[nome]) ui.toast(frases[nome]);
   }
 
+  /* v26: a abóbada do céu. Em cima, o azul da hora; no horizonte, a mesma cor da névoa, para o longe se fundir com o céu.
+     Antes o fundo era só a cor da névoa, e o céu ficava cinza. */
+  const ceuMat = new THREE.ShaderMaterial({
+    uniforms: { topo: { value: new THREE.Color(0x4a8ad8) }, horiz: { value: new THREE.Color(0xb6c4ce) } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform vec3 topo; uniform vec3 horiz; varying vec3 vP; void main(){ float h = clamp(vP.y, 0.0, 1.0); float k = pow(smoothstep(0.0, 0.55, h), 0.8); gl_FragColor = vec4(mix(horiz, topo, k), 1.0); }',
+    side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false
+  });
+  const abobada = new THREE.Mesh(new THREE.SphereGeometry(170, 24, 14), ceuMat); abobada.renderOrder = -10; abobada.frustumCulled = false;
+  M.scene.add(abobada); M.abobada = abobada;
+
   /* chamado por M.ambient a cada quadro */
   T.aplicar = function (dt, fx, fz) {
     const J = OV.jogo, P = OV.P;
@@ -73,6 +84,9 @@
     const k = subterraneo ? NOITE : amostrar(h);
 
     M.scene.background.setHex(k.ceu); M.scene.fog.color.setHex(k.ceu);
+    ceuMat.uniforms.topo.value.setHex(k.topo); ceuMat.uniforms.horiz.value.setHex(k.ceu);
+    abobada.visible = !subterraneo && !(M.interiorAtual && M.veuInterior && M.veuInterior(M.interiorAtual) && M.veuInterior(M.interiorAtual).visible);
+    if (M.camera) abobada.position.copy(M.camera.position);
     M.scene.fog.near = k.n; M.scene.fog.far = k.f;
     M.amb.color.setHex(k.amb); M.amb.intensity = k.ai;
     M.hemi.color.setHex(k.hs); M.hemi.groundColor.setHex(k.hg); M.hemi.intensity = k.hi;

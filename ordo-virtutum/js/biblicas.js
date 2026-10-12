@@ -66,6 +66,9 @@
   });
   BI.CASAS = CASAS;
   const md = () => { const f = F(); if (!f.meiodia) f.meiodia = {}; return f.meiodia; };
+  // v26: o encosto só aparece perto do meio-dia (das 11h às 15h); fora disso a casa continua tomada, mas ninguém vê o encosto
+  const meioDia = () => T.hora >= 11 && T.hora < 15;
+  let eraMeioDia = null;
   const dia = () => F().dia || 0;
   let horaAnt = null;
   // a aura que inunda a casa, e o encosto sentado no telhado
@@ -87,10 +90,11 @@
       const tomada = e && e.st === 'tomada', vencida = e && e.st === 'vencida';
       v.aura.visible = tomada || vencida; v.luz.int = tomada ? 1.3 : vencida ? 0.6 : 0;
       v.aura.material.opacity = tomada ? 0.2 : 0.12;
-      if (tomada && !I.porTag('md_' + i).some(vivo)) decoEncosto(c, v); else tirarDeco(v);
+      if (tomada && meioDia() && !I.porTag('md_' + i).some(vivo)) decoEncosto(c, v); else if (!v.desc) tirarDeco(v);
       if (!tomada) MS.tagRemove('md_' + i);
     });
   }
+  BI.aplicarMeiodia = aplicarMeiodia; BI.encostosVisiveis = () => visual.filter(v => v.deco).length;
   let mdT = 0;
   function atualizarMeiodia(dt, t) {
     if (!prog() || !MS.feita('m2')) return;
@@ -99,6 +103,7 @@
     horaAnt = T.hora;
     mdT -= dt; if (mdT > 0) return; mdT = 0.5;
     const h = T.hora, m = md();
+    if (meioDia() !== eraMeioDia) { eraMeioDia = meioDia(); aplicarMeiodia(); }
     // ao meio-dia, os encostos voltam às casas que não foram abençoadas
     if (h >= 11.5 && h < 14.5 && m.semeado !== dia()) {
       m.semeado = dia();
@@ -116,7 +121,7 @@
     CASAS.forEach((c, i) => {
       const e = m[i], v = visual[i]; if (!e || e.st !== 'tomada') return;
       v.aura.material.opacity = 0.16 + 0.06 * Math.sin(t * 2 + i);
-      if (I.porTag('md_' + i).some(vivo) || v.desc) return;
+      if (I.porTag('md_' + i).some(vivo) || v.desc || !meioDia()) return;
       if (Math.hypot(P.pos.x - c.porta.x, P.pos.z - c.porta.z) < 15) iniciarDescida(c, v);
     });
   }
@@ -167,7 +172,8 @@
         const m = md(), pend = CASAS.some((cc, k) => { const e = m[k]; return e && (e.st === 'tomada' || e.st === 'vencida'); });
         if (!pend) {
           const livres = CASAS.map((cc, k) => k).filter(k => { const e = m[k]; return !e || (e.st === 'abencoada' && dia() - e.dia >= 2); });
-          if (livres.length) { const j = livres.sort((a, b) => Math.hypot(CASAS[a].x - c.x, CASAS[a].z - c.z) - Math.hypot(CASAS[b].x - c.x, CASAS[b].z - c.z))[0]; m[j] = { st: 'tomada', dia: dia() }; setTimeout(() => ui.toast(`Ainda falta uma casa: outra sombra dourada pousa no telhado de ${CASAS[j].nome}.`), 1800); }
+          if (livres.length && meioDia()) { const j = livres.sort((a, b) => Math.hypot(CASAS[a].x - c.x, CASAS[a].z - c.z) - Math.hypot(CASAS[b].x - c.x, CASAS[b].z - c.z))[0]; m[j] = { st: 'tomada', dia: dia() }; setTimeout(() => ui.toast(`Ainda falta uma casa: outra sombra dourada pousa no telhado de ${CASAS[j].nome}.`), 1800); }
+          else if (livres.length) setTimeout(() => ui.toast('Ainda falta uma casa. Amanhã, ao meio-dia, outro encosto vai pousar na vila.'), 1800);
         }
       }
       aplicarMeiodia(); if (OV.jogo) OV.jogo.salvar();
@@ -656,10 +662,14 @@
     passaro: { nome: 'Pintassilgo', preco: 50 }
   };
   BI.ANIMAIS = ANIMAIS;
-  const tem = k => !!(F().animais && F().animais[k]);
+  // v26: no co-op, cada um compra o seu: o convidado guarda os animais na própria ficha
+  const convidadoCo = () => !!(OV.coop && OV.coop.convidado && OV.coop.convidado());
+  const meusAnimais = () => convidadoCo() ? (P.pers ? (P.pers.animais = P.pers.animais || {}) : {}) : (F().animais = F().animais || {});
+  const tem = k => !!meusAnimais()[k];
+  BI.temAnimal = tem;
   function comprar(k) {
     const a = ANIMAIS[k]; if (den() < a.preco) return;
-    P.pers.denarios = den() - a.preco; F().animais = F().animais || {}; F().animais[k] = true;
+    P.pers.denarios = den() - a.preco; meusAnimais()[k] = true;
     if (A.bell) A.bell(659, 0.12);
     if (k === 'jumento' || k === 'cavalo') setTimeout(() => ui.toast(`Você comprou um ${a.nome.toLowerCase()}. Aperte H para montar ou desmontar (longe da luta).`), 400);
     if (k === 'cachorro') { chamarCachorro(); setTimeout(() => ui.toast('O cachorro abana o rabo e vai com você. Ele morde os vícios que chegam perto.'), 400); }
@@ -795,7 +805,7 @@
   MS.ganchos.aplicar.push(aplicarMeiodia);
   AV.ligarNpcs();
   MS.ganchos.inventario.push(inv => {
-    if (F().animais) { const n = Object.keys(F().animais).filter(k => F().animais[k]).map(k => ANIMAIS[k].nome); if (n.length) inv.push('Animais: ' + n.join(', ')); }
+    { const ma = meusAnimais(), n = Object.keys(ma).filter(k => ma[k] && ANIMAIS[k]).map(k => ANIMAIS[k].nome); if (n.length) inv.push('Animais: ' + n.join(', ')); }
     if (F().afinacao) inv.push(`Armas afinadas por Eliaquim (grau ${F().afinacao} de 3)`);
   });
 })(window.OV);

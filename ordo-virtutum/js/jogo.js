@@ -156,7 +156,8 @@
     I.lista.forEach(e => { if (e.mundo && e.mundoIdx !== undefined && !e.marcadoMorto && (e.state === 'dead' || e.state === 'liberto')) { e.marcadoMorto = true; mortos[e.mundoIdx] = J.dia(); } });
     spawnMundo(false);
   }
-  function resetarHistoria() { I.lista.forEach(e => { if (!e.mundo && e.state !== 'dead' && e.spawnT <= 0) I.resetar(e); }); }
+  // v26: só volta ao lugar quem ainda está de pé e à vista: um libertado ou um vício que já sumiu não "renasce" invisível
+  function resetarHistoria() { I.lista.forEach(e => { if (!e.mundo && !e.removed && e.state !== 'dead' && e.state !== 'liberto' && e.spawnT <= 0) I.resetar(e); }); }
 
   /* ---- pausa, ficha, mapa, morte ---- */
   J.pausar = function (silencioso) {
@@ -189,7 +190,9 @@
   J.renascer = function (parcial) {
     J.mapa = false; MP.fechar(); J.ficha = false; ui.ficha(false);
     if (parcial !== true && MS().guardarChefes) MS().guardarChefes(); // v24: o chefe guarda as feridas antes de tudo se refazer
+    const masm = (M.masmorraEm ? M.masmorraEm(P.pos.x, P.pos.z) : null) || (parcial === true && MS().pontoGrupo ? MS().pontoGrupo() : null);
     C.resetAcoes(); C.restaurar(); C.limparEfeitos(); posicionarInicio();
+    if (masm) { C.posicionar(masm.x, masm.z, masm.f); cam.yaw = masm.f + Math.PI; J.mudouLugar(); setTimeout(() => ui.toast(masm.msg || `Você desperta na entrada de ${masm.nome}. Para sair, use a porta.`), 600); }
     if (parcial !== true) resetarHistoria();
     P.morteUsada = false;
     if (H) { H.limpar(false); H.trazerAliados(); }

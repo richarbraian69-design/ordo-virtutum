@@ -393,11 +393,15 @@
     return out;
   };
   // a linha entre dois pontos passa por alguma parede, casa ou obstáculo grande?
-  M.linhaLivre = function (x0, z0, x1, z1, r) {
-    r = r || 0.4;
+  M.linhaLivre = function (x0, z0, x1, z1, r, minR) {
+    r = r || 0.4; const rMin = minR === undefined ? 0.9 : minR;
     if (M.paredeEntre(x0, z0, x1, z1)) return false;
     const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.6);
-    for (let q = 1; q < n; q++) { const t = q / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t; for (const o of M.obstacles) { if (o.r < 0.9) continue; const dx = x - o.x, dz = z - o.z, m = o.r + r; if (Math.abs(dx) < m && Math.abs(dz) < m && dx * dx + dz * dz < m * m) return false; } }
+    // só os obstáculos perto do segmento entram na conta (uma passada pela lista, não uma por amostra)
+    const mx0 = Math.min(x0, x1) - r - 3, mx1 = Math.max(x0, x1) + r + 3, mz0 = Math.min(z0, z1) - r - 3, mz1 = Math.max(z0, z1) + r + 3;
+    const perto = M.obstacles.filter(o => o.r >= rMin && o.x > mx0 && o.x < mx1 && o.z > mz0 && o.z < mz1);
+    if (!perto.length) return true;
+    for (let q = 1; q < n; q++) { const t = q / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t; for (const o of perto) { const dx = x - o.x, dz = z - o.z, m = o.r + r; if (dx * dx + dz * dz < m * m) return false; } }
     return true;
   };
 

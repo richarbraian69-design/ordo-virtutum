@@ -408,7 +408,9 @@
 
   /* ================= A SANTEIRA DA VILA ================= */
   {
-    const c = CS.casas[0], st = c.W(5.6, 8.6), mesa = c.W(4.2, 8.1), r = c.rot;
+    // v26: a banca saiu de trás da Casa do Peregrino e foi para a praça da vila, à vista de quem chega
+    const vila = (M.SITIO && M.SITIO.vila) || { x: 0, z: 150 }, mesa = { x: vila.x + 8.3, z: vila.z + 3.4 };
+    const r = Math.atan2(vila.x - mesa.x, vila.z - mesa.z), st = { x: mesa.x - Math.sin(r) * 0.95, z: mesa.z - Math.cos(r) * 0.95 };
     const g = M.grupo(mesa.x, mesa.z, r);
     g.add(BOX(1.9, 0.08, 0.8, MAT.woodL, 0, 0.82, 0)); [[-0.85, -0.32], [0.85, -0.32], [-0.85, 0.32], [0.85, 0.32]].forEach(([a, b]) => g.add(BOX(0.08, 0.82, 0.08, MAT.wood, a, 0.41, b)));
     g.add(BOX(1.9, 0.5, 0.04, pano(0x7a140d), 0, 0.6, 0.4));

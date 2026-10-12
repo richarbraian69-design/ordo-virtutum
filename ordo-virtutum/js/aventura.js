@@ -151,7 +151,7 @@
   AV.espelharEntrega = function (m) {
     const cfg = { npc: m.npc || null, prop: m.prop, acao: m.acao, alvo: m.alvo ? { x: m.alvo[0], y: m.alvo[1], z: m.alvo[2] } : null, dur: m.dur || 0, fica: !!m.fica, semVolta: !!m.semVolta };
     if (cfg.npc && !M.figuras[cfg.npc]) cfg.npc = null;
-    fila.push({ cfg, fim: null, x: P.pos.x, z: P.pos.z, espelho: true, de: new THREE.Vector3(m.de[0], m.de[1], m.de[2]), quem: m.quem || null });
+    fila.push({ cfg, fim: null, x: P.pos.x, z: P.pos.z, espelho: true, de: new THREE.Vector3(m.ori[0], m.ori[1], m.ori[2]), quem: m.quem || null });
   };
   // o convidado não roda as missões; a cena espelhada anda por aqui
   AV.atualizarEspelho = dt => { if (cena || fila.length) atualizarCena(dt); };
@@ -164,7 +164,8 @@
     const f = cfg.npc ? M.figuras[cfg.npc] : null;
     // quem recebe está dentro de casa: o peregrino entra junto (a casa se abre para a câmera)
     const casaNpc = f ? (M.interiores || []).find(c => dentroDe(c, f.x, f.z)) : null;
-    if (casaNpc && !job.espelho && !dentroDe(casaNpc, P.pos.x, P.pos.z)) { const q = casaNpc.W(0, casaNpc.hd - 0.9); OV.combate.posicionar(q.x, q.z, Math.atan2(f.x - q.x, f.z - q.z)); }
+    // v26: o peregrino fica de lado, junto da parede da porta, para não tapar a cena (a câmera vem do lado da porta)
+    if (casaNpc && !job.espelho) { const lado = Math.min(casaNpc.hw - 0.8, 2.2) * (casaNpc.W(1, 0).x - casaNpc.x >= 0 ? 1 : -1); const q = casaNpc.W(lado, casaNpc.hd - 1.0); OV.combate.posicionar(q.x, q.z, Math.atan2(f.x - q.x, f.z - q.z)); }
     const alvo = cfg.alvo ? val(cfg.alvo) : null;
     // a coisa sai da mão do peregrino (ou aparece nela)
     travaCarga = true;
@@ -178,14 +179,15 @@
     if (OV.cenas) {
       const m0 = meio(), casa = casaNpc;
       // dentro de casa: a câmera fica no alto, do lado da porta, sem sair pelas paredes
-      if (casa) OV.cenas.iniciar({ entrega: true, espelhoHost: !!job.espelho, alvo: meio, raio: Math.max(2.2, Math.min(3.2, Math.min(casa.hw, casa.hd) - 0.5)), altura: 3.3, giro: 0, olhar: 0.8, ang0: Math.atan2(casa.porta.x - m0.x, casa.porta.z - m0.z) });
+      if (casa) { const aPorta = Math.atan2(casa.porta.x - m0.x, casa.porta.z - m0.z), aP = Math.atan2(P.pos.x - m0.x, P.pos.z - m0.z), desvio = OV.util.angWrap(aP - aPorta) >= 0 ? -0.55 : 0.55;
+        OV.cenas.iniciar({ entrega: true, espelhoHost: !!job.espelho, alvo: meio, raio: Math.max(2.2, Math.min(3.2, Math.min(casa.hw, casa.hd) - 0.5)), altura: 3.3, giro: 0, olhar: 0.8, ang0: aPorta + desvio }); }
       else OV.cenas.iniciar({ entrega: true, espelhoHost: !!job.espelho, alvo: meio, raio: 5.2, altura: 2.5, giro: 0.03, olhar: 0.9, ang0: anguloLivre(m0, Math.atan2(P.pos.x - m0.x, P.pos.z - m0.z) + 0.9, 5.2) });
     }
     // o peregrino se vira para quem recebe
     if (f && !job.espelho) OV.combate.posicionar(P.pos.x, P.pos.z, Math.atan2(f.x - P.pos.x, f.z - P.pos.z));
     cena = { cfg, fim: job.fim, f, alvo, obj, casa, t: 0, fase: 'voo', de: obj.position.clone(), estacao: null, espelho: !!job.espelho };
     // no co-op, o colega vê a mesma entrega
-    if (!job.espelho && AV.aoEntrega) AV.aoEntrega({ npc: cfg.npc || 0, prop: cfg.prop || 'carvao', acao: cfg.acao || 'dar', alvo: alvo ? [alvo.x, alvo.y, alvo.z] : 0, dur: cfg.dur || 0, fica: cfg.fica ? 1 : 0, semVolta: cfg.semVolta ? 1 : 0, de: [obj.position.x, obj.position.y, obj.position.z] });
+    if (!job.espelho && AV.aoEntrega) AV.aoEntrega({ npc: cfg.npc || 0, prop: cfg.prop || 'carvao', acao: cfg.acao || 'dar', alvo: alvo ? [alvo.x, alvo.y, alvo.z] : 0, dur: cfg.dur || 0, fica: cfg.fica ? 1 : 0, semVolta: cfg.semVolta ? 1 : 0, ori: [obj.position.x, obj.position.y, obj.position.z] });
     if (f) f.gesto = gestoPadrao(cena);
   }
   // o ângulo da câmera da cena com menos árvores e paredes no caminho
@@ -438,16 +440,21 @@
     cfg.m = m; cfg.regiao = cfg.regiao || regiaoDe(cfg.x, cfg.z);
     M.obstacles.push({ x: cfg.x, z: cfg.z, r: 0.6 });
     const frente = { x: cfg.x + Math.sin(cfg.rot || 0) * 1.1, z: cfg.z + Math.cos(cfg.rot || 0) * 1.1 };
-    M.interativo(frente.x, frente.z, 2.0, () => aberto(cfg) ? null : (cfg.cond && !cfg.cond()) ? null : 'Abrir o baú', () => abrirBau(cfg));
+    const ib = M.interativo(frente.x, frente.z, 2.0, () => abertoPorMim(cfg) ? null : (cfg.cond && !cfg.cond()) ? null : 'Abrir o baú', () => abrirBau(cfg));
+    ib.pessoal = true; // v26: no co-op, o convidado também abre (e tem o próprio saque)
     baus.push(cfg);
   };
   const aberto = cfg => !!(prog() && (prog().baus || {})[cfg.id]);
+  // v26: saque individual. O convidado guarda no próprio personagem os baús que já abriu; o mundo do anfitrião não muda
+  const convidado = () => !!(OV.coop && OV.coop.convidado && OV.coop.convidado());
+  const abertoPorMim = cfg => convidado() ? !!(P.pers && P.pers.bausColeta && P.pers.bausColeta[cfg.id]) : aberto(cfg);
   AV.bausAbertos = regiao => baus.filter(b => (!regiao || b.regiao === regiao) && aberto(b)).length;
   AV.bausTotal = regiao => baus.filter(b => !regiao || b.regiao === regiao).length;
   function abrirBau(cfg) {
-    const gd = I.porTag('bau_' + cfg.id).filter(vivo);
+    const gd = convidado() ? I.lista.filter(e => vivo(e) && e.replica && Math.hypot(e.g.position.x - cfg.x, e.g.position.z - cfg.z) < 9) : I.porTag('bau_' + cfg.id).filter(vivo);
     if (gd.some(e => Math.hypot(e.g.position.x - P.pos.x, e.g.position.z - P.pos.z) < 18)) { ui.toast('Os vícios guardam o baú. Vença-os primeiro.'); return; }
-    const p = prog(); p.baus = p.baus || {}; p.baus[cfg.id] = true;
+    if (convidado()) { P.pers.bausColeta = P.pers.bausColeta || {}; P.pers.bausColeta[cfg.id] = true; }
+    else { const p = prog(); p.baus = p.baus || {}; p.baus[cfg.id] = true; }
     // a tampa se abre e sobe um brilho dourado
     const m = cfg.m; let t = 0;
     C().efeito([], 1.4, q => { m.tampa.rotation.x = -1.9 * Math.min(1, q * 1.6); m.luz.material.opacity = 0.6 * Math.sin(Math.min(1, q) * Math.PI); m.luz.scale.setScalar(1 + q * 2); });
@@ -469,7 +476,7 @@
   }
   function aplicarBaus() {
     baus.forEach(cfg => {
-      const ab = aberto(cfg); cfg.m.tampa.rotation.x = ab ? -1.9 : 0;
+      const ab = aberto(cfg); cfg.m.tampa.rotation.x = abertoPorMim(cfg) ? -1.9 : 0;
       const tag = 'bau_' + cfg.id;
       if (ab || !cfg.guarda || !cfg.guarda.length) { soltarGuarda(tag); return; }
       preparar(tag, cfg.x, cfg.z, () => cfg.guarda.forEach(([t, nv, vr], k) => { const a = k / cfg.guarda.length * 6.28 + 0.4; const e = I.spawn(t, false, { x: cfg.x + Math.cos(a) * 4.5, z: cfg.z + Math.sin(a) * 4.5 }, { nivel: nv, variante: vr || null }); e.tag = tag; e.mundo = false; if (e.def.liberta) e.sumir = true; }));
@@ -647,6 +654,13 @@
     const dx = x - cfg.x, dz = z - cfg.z, cs = Math.cos(cfg.rot || 0), sn = Math.sin(cfg.rot || 0);
     const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs, m = margem || 0;
     return Math.abs(lx) < cfg.HW + m && lz > -cfg.HD - m && lz < cfg.HD + m;
+  };
+  // v26: quem cai numa masmorra (ou na cripta do mosteiro) desperta na entrada dela, não no Oratório
+  M.masmorraEm = function (x, z) {
+    const m = masmorras.find(c => AV.dentroMasmorra(c, x, z, 0.5));
+    if (m) { const p = m.W(0, m.HD - 3); return { x: p.x, z: p.z, f: (m.rot || 0) + Math.PI, nome: m.nome }; }
+    if (x > 200 && x < 340 && z < 62 && OV.cripta) return { x: OV.cripta.X, z: 57.5, f: Math.PI, nome: 'a cripta' };
+    return null;
   };
   // o vício da masmorra não passa da porta: a saída é uma barreira para ele
   AV.prenderNaMasmorra = function (cfg, p) {

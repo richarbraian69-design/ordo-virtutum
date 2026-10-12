@@ -469,6 +469,7 @@
   I.vivos = () => I.lista.filter(e => e.state !== 'dead' && e.state !== 'liberto' && e.spawnT <= 0);
   I.porTag = tag => I.lista.filter(e => e.tag === tag);
   I.resetar = function (e) {
+    if (e.removed || e.state === 'dead' || e.state === 'liberto') return; // v26: quem já caiu não levanta
     e.hp = e.def.hp; e.state = 'idle'; e.t = 0; e.vel.set(0, 0, 0);
     e.g.position.set(e.home.x, M.altura(e.home.x, e.home.z), e.home.z);
   };
@@ -546,7 +547,18 @@
   function contornar(e, g, ax, az, d, dt, vel) {
     const def = e.def;
     if (def.voa || def.fixo || !M.caminho || d < 2 || d > 45 || !(def.speed > 0)) { e.rota = null; return false; }
-    if (!M.paredeEntre(g.position.x, g.position.z, ax, az)) { e.rota = null; return false; }
+    // v26: além das paredes, os objetos no caminho (colunas, árvores, caixas) e o vício que ficou parado sem chegar perto
+    e.bloqT = (e.bloqT || 0) - dt;
+    if (e.bloqT <= 0) {
+      e.bloqT = 0.4;
+      // parado sem chegar perto: andou quase nada, ainda longe do alcance do golpe (quem atira de longe espera de propósito)
+      const tp = e.golpe ? e.golpe.tipo : 'golpe', longeDoGolpe = d > ((tp === 'tiro' || tp === 'chuva' || tp === 'onda') ? 15 : Math.max(4, def.range + 1.5));
+      const andou = e.progP ? Math.hypot(g.position.x - e.progP.x, g.position.z - e.progP.z) : 1;
+      if (e.state === 'chase' && longeDoGolpe && andou < 0.25) e.presoN = (e.presoN || 0) + 1; else if (!e.rota || !e.rota.length) e.presoN = 0;
+      e.progP = { x: g.position.x, z: g.position.z };
+      e.bloq = M.paredeEntre(g.position.x, g.position.z, ax, az) || !M.linhaLivre(g.position.x, g.position.z, ax, az, Math.max(0.3, def.r * 0.7), 0.45) || e.presoN >= 3;
+    }
+    if (!e.bloq) { e.rota = null; return false; }
     e.rotaT = (e.rotaT || 0) - dt;
     if ((!e.rota || !e.rota.length || e.rotaT <= 0) && I._orcCaminho > 0) { I._orcCaminho--; e.rota = M.caminho(g.position.x, g.position.z, ax, az, Math.max(0.45, Math.min(1.2, def.r))) || []; e.rotaT = 1.4; }
     if (!e.rota || !e.rota.length) return false;
@@ -564,6 +576,7 @@
     atualizarProjeteis(dt); atualizarOndas(dt); atualizarChuvas(dt);
     const ousadia = OV.tempo && OV.tempo.ehNoite() && P.pos.x < 200 ? 1.3 : 1; // à noite os vícios avançam de mais longe
     I.lista.forEach(e => {
+      if (e.removed) return; // v26: o que saiu da cena não pensa nem ataca (antes atacava invisível)
       const g = e.g, def = e.def;
       const P = escolherAlvo(e, alvos); // o jogador mais perto (no co-op, pode ser o colega)
       if (e.state === 'dead') {

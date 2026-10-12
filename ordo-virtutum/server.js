@@ -36,7 +36,7 @@ const servidor = http.createServer((req, res) => {
    sem `para`, a do anfitrião vai para todos os convidados, e a de um convidado vai só para o anfitrião
    (menos o estado do personagem e os efeitos visuais, que todos veem). */
 const VAGAS = 4;
-const PARA_TODOS = new Set(['eu', 'fxp']);
+const PARA_TODOS = new Set(['eu', 'fxp', 'entrega', 'barco']); // v26: a cena de entrega e o barco, todos veem
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const salas = new Map(); // código -> { ws: [anfitrião, conv1, conv2, conv3], nomes, fichas, versao, vaziaDesde, semAnfitriaoDesde }
 const novoCodigo = () => { for (let n = 0; n < 200; n++) { let c = ''; for (let i = 0; i < 4; i++) c += LETRAS[Math.floor(Math.random() * LETRAS.length)]; if (!salas.has(c)) return c; } return null; };

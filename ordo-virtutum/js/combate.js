@@ -95,8 +95,11 @@
     P.mira = t || null;
     if (pesado) A.heavy(); else if (W.projetil) A.cast(); else A.swish();
   };
+  // v26: enquanto uma cena roda (entrega, barco, poema), nada de esquiva nem de passo
+  const emCena = () => !!((OV.cenas && OV.cenas.ativa) || (OV.aventura && OV.aventura.travado && OV.aventura.travado()) || P.travado);
+  C.emCena = emCena;
   C.esquivar = function () {
-    if (!ativo() || P.dead) return;
+    if (!ativo() || P.dead || emCena()) return;
     if (P.dodgeT > 0 || P.praying || P.castT > 0 || P.oratT > 0) return;
     const custoEsq = HB() && HB().tem('mao') ? 11 : 22;
     if (P.sta < custoEsq) { ui.toast('Sem fôlego.'); return; }
@@ -440,7 +443,7 @@
     const keys = OV.input.keys;
     // no co-op o mundo segue com uma tela aberta, mas o peregrino fica parado enquanto o jogador lê
     const semMao = !!(OV.jogo && OV.jogo.ativo && !OV.jogo.ativo());
-    const dir = inputDir(); if (semMao || (OV.aventura && OV.aventura.travado()) || (OV.ajustes && OV.ajustes.travado()) || P.travado) dir.set(0, 0, 0); // durante uma entrega, o peregrino só olha
+    const dir = inputDir(); if (semMao || emCena() || (OV.ajustes && OV.ajustes.travado())) dir.set(0, 0, 0); // durante uma entrega, o peregrino só olha
     const moving = dir.lengthSq() > 0;
     const wantPray = !semMao && keys.KeyR && P.dodgeT <= 0 && P.atkT <= 0 && P.castT <= 0 && P.prayLock <= 0 && P.oratT <= 0;
     if (wantPray) {

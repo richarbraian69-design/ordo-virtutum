@@ -18,7 +18,7 @@
   const { turnTo, lerp } = OV.util;
   const $ = id => document.getElementById(id);
   const esc = s => ui.esc(String(s));
-  const VERSAO = '25';
+  const VERSAO = '26';
   const MULT2 = 2.5, MULT34 = 3.5, VAGAS = 4;
 
   const CO = { papel: null, codigo: null, ficha: null, ws: null, conectado: false, colegaOn: false, colegaNome: '', seq: 0, atkSeq: 0, mundoHost: null, espelho: false, slot: 0, on: new Set(), nomes: {} };
@@ -201,7 +201,7 @@
     if (HI() && HI().prologoAberto && HI().prologoAberto()) return 'vendo uma cena';
     if (CO.espelho || CO.servico) return null;
     if (J.dialogo || D.aberto) return 'numa conversa';
-    if (OV.cenas && OV.cenas.ativa && !OV.cenas.ativa.entrega) return 'vendo uma cena'; // a entrega o colega vê na tela dele, sem parar
+    if (OV.cenas && OV.cenas.ativa && !OV.cenas.ativa.entrega && !OV.cenas.ativa.barco) return 'vendo uma cena'; // a entrega o colega vê na tela dele, sem parar
     // no co-op, as telas não param o mundo: só servem para mostrar ao outro o que o colega está fazendo
     if (CO.ativo()) return null;
     if (J.inv) return 'no inventário';
@@ -275,7 +275,12 @@
     CO.enviar({ t: 'ferir', para: R_.slot, d: o.dano, st: o.status || 0, a: r2(o.ang || 0), id: f ? f.netId : 0, key: f ? f.def.key : 0, ex: f ? r2(f.g.position.x) : 0, ez: f ? r2(f.g.position.z) : 0 });
   };
   I.aoFx = m => { if (CO.anfitriao() && CO.colegaOn) { m.t = 'fx'; CO.enviar(m); } };
-  if (OV.aventura) OV.aventura.aoEntrega = m => { if (CO.anfitriao() && CO.colegaOn) CO.enviar(Object.assign({ t: 'entrega' }, m)); };
+  // v26: a cena de entrega (a forja, o carvão) aparece para todos, seja quem for que a disparou
+  if (OV.aventura) OV.aventura.aoEntrega = m => { if (CO.ativo() && CO.on.size) CO.enviar(Object.assign({ t: 'entrega' }, m)); };
+  // v26: as renúncias valem para o grupo inteiro
+  if (OV.historia) OV.historia.aoSacrificio = (tipo, santo) => { if (CO.anfitriao() && CO.colegaOn) CO.enviar({ t: 'sacrificio', tipo, santo }); };
+  // v26: o barco de Simeão leva quem estiver no cais
+  if (OV.ajustes) OV.ajustes.aoTravessia = de => { if (CO.ativo() && CO.on.size) CO.enviar({ t: 'barco', lado: de }); };
   // as mortes: o anfitrião ganha como sempre; o convidado recebe a notícia e ganha a parte dele
   // a experiência de cada vício vencido vale para quem está a até 40 m dele (ou para quem deu o golpe)
   const RAIO_XP = 40;
@@ -322,7 +327,8 @@
       con0.apply(ms, arguments);
       if (CO.anfitriao() && CO.colegaOn && !antes && ms.MIS[id]) anotarRecompensa(ms.MIS[id].nome);
     };
-    ms.update = function () { if (CO.convidado()) return; return upd0.apply(ms, arguments); };
+    // v26: o convidado não roda as missões, mas o sol da cripta (e a Graça de Antão) anda para ele também
+    ms.update = function (dt) { if (CO.convidado()) { if (P.pos.x > 200 && OV.cripta && OV.cripta.update) OV.cripta.update(dt); return; } return upd0.apply(ms, arguments); };
     ms.evento = function () { if (CO.convidado()) return false; return ev0.apply(ms, arguments); };
   }
   // o que o anfitrião tem agora: denários, itens (mochila, baú e equipados) e as peças da casa
@@ -407,7 +413,7 @@
       try { return poema0.call(CE, key, op, depois); } finally { CO.emPoema = false; }
     };
     CE.iniciar = function (cfg) {
-      if (CO.anfitriao() && CO.colegaOn && !CO.emPoema && cfg && !cfg.entrega && !cfg.espelhoHost) {
+      if (CO.anfitriao() && CO.colegaOn && !CO.emPoema && cfg && !cfg.entrega && !cfg.espelhoHost && !cfg.barco) {
         const a = typeof cfg.alvo === 'function' ? cfg.alvo() : cfg.alvo;
         if (a) CO.enviar({ t: 'cena_cam', a: [r2(a.x), r2(a.y), r2(a.z)], raio: cfg.raio || 7, altura: cfg.altura || 3, giro: cfg.giro !== undefined ? cfg.giro : 0.12, olhar: cfg.olhar !== undefined ? cfg.olhar : 1.4 });
       }
@@ -416,7 +422,7 @@
     CE.encerrar = function () {
       const era = CE.ativa;
       encerrar0.call(CE);
-      if (era && !era.entrega && !era.espelhoHost && CO.anfitriao() && CO.colegaOn) CO.enviar({ t: 'cena_fim' });
+      if (era && !era.entrega && !era.espelhoHost && !era.barco && CO.anfitriao() && CO.colegaOn) CO.enviar({ t: 'cena_fim' });
     };
   }
   function cenaDoAnfitriao(m) {
@@ -546,6 +552,8 @@
     const vistos = new Set();
     for (const a of m.l) {
       const id = a[0]; let e = porIdC.get(id);
+      // v26: um vício que o convidado viu cair e que voltou de pé no anfitrião ganha corpo novo (antes voltava invisível)
+      if (e && !e.removed && (e.netState === 'dead' || e.netState === 'liberto') && a[10] !== 'dead' && a[10] !== 'liberto') { M.scene.remove(e.g); if (e.lab) e.lab.el.remove(); e.removed = true; }
       if (!e || e.removed) { e = criarReplica(a); if (!e) continue; }
       vistos.add(id);
       const [, , , , x, y, z, ry, hp, mhp, st, nome, k, golpe, semRotulo, escala] = a;
@@ -622,6 +630,12 @@
     const e = porIdC.get(m.id);
     const fonte = { def: { key: m.key || 'golpe', dmg: m.d, status: m.st || undefined, nivel: 1 }, g: { position: new THREE.Vector3(m.ex || P.pos.x, P.pos.y, m.ez || P.pos.z) }, netId: m.id, multDano: 1, replica: true };
     if (m.golpe) {
+      // v26: o anfitrião vê o convidado com um pouco de atraso; um golpe de perto que chega com o convidado já longe
+      // (na tela dele) não conta. Era isso que fazia o lobo "morder de longe".
+      if (m.ex !== undefined && m.ez !== undefined) {
+        const alcance = ((e && e.def && e.def.range) || 2.5) + (e && (e.netState === 'investida' || e.tipoGolpe === 'forte') ? 3.5 : 2.2) + ((e && e.def && e.def.r) || 0.6);
+        if (Math.hypot(m.ex - P.pos.x, m.ez - P.pos.z) > alcance) return;
+      }
       // o Sinal da Cruz do convidado também atordoa o vício
       const ang = Math.atan2(fonte.g.position.x - P.pos.x, fonte.g.position.z - P.pos.z);
       if (P.parryT > 0 && Math.abs(OV.util.angWrap(ang - P.facing)) < 1.6) {
@@ -683,11 +697,12 @@
   // o convidado não conversa nem mexe no mundo (o anfitrião conduz); também não viaja sozinho
   const proximo0 = M.interativoProximo;
   M.interativoProximo = function (x, z) {
+    const un = uncaoProxima(x, z); if (un) return un; // v26: a Unção dos Enfermos vem antes de tudo
     if (!CO.convidado()) return proximo0.call(M, x, z);
     // só o que é pessoal: o baú das capelas e a Casa do Peregrino
     let best = null, bd = 1e9;
     for (const i of M.interativos) { if (!i.pessoal) continue; const d = Math.hypot(i.x - x, i.z - z); if (d < i.r && d < bd && i.texto()) { bd = d; best = i; } }
-    return best || servicoProximo(x, z);
+    return best || servicoProximo(x, z) || conversaProxima(x, z);
   };
   /* os serviços que o convidado também usa, sem a conversa da história: a bênção do padre e a forja */
   const SERVICOS = { tome: 'padre', gaspar: 'padre', abade: 'padre', lia: 'ferreiro', eustaquio: 'ferreiro', dunstano: 'ferreiro' };
@@ -740,6 +755,98 @@
       J.salvar();
     };
   }
+  /* v26: o convidado também conversa com os aldeões. As escolhas que mudam o mundo ficam com o anfitrião;
+     as lojas (animais e santeira) são de cada um. */
+  const VENDAS = { zacarias: 1, ismael: 1, bonifacio: 1, santeira: 1 };
+  const conversaCache = {};
+  function conversaProxima(x, z) {
+    let best = null, bd = 2.6;
+    for (const id in M.figuras) {
+      if (SERVICOS[id]) continue;
+      const f = M.figuras[id]; if (!f || f.visivel === false || !f.op || !f.op.nome) continue;
+      const d = Math.hypot(f.x - x, f.z - z); if (d < bd) { bd = d; best = id; }
+    }
+    if (!best) return null;
+    const f = M.figuras[best], nome = f.op.nome;
+    const i = conversaCache[best] || (conversaCache[best] = { r: 2.6, pessoal: true });
+    i.x = f.x; i.z = f.z; i.texto = () => `Falar com ${nome}`; i.acao = () => conversarComo(best, f, nome);
+    return i;
+  }
+  const SO_ANFITRIAO = 'quem decide é o anfitrião';
+  function soLeitura(arv) {
+    const nos = {};
+    for (const k in arv.nos) {
+      const n = Object.assign({}, arv.nos[k]); delete n.ef; delete n.depois;
+      if (n.opc) n.opc = n.opc.map(o => (o && o.ef) ? Object.assign({}, o, { ef: null, cond: () => false, motivo: SO_ANFITRIAO }) : o);
+      nos[k] = n;
+    }
+    return { inicio: arv.inicio, nos };
+  }
+  CO.soLeitura = soLeitura;
+  function conversarComo(id, f, nome) {
+    const ms = MS(); let arv = null;
+    try { arv = ms && ms.ARV && ms.ARV[id] ? ms.ARV[id]() : null; } catch (err) { arv = null; }
+    CO.servico = true;
+    if (arv && arv.nos) D.abrir(VENDAS[id] ? arv : soLeitura(arv));
+    else { const fala = typeof f.op.fala === 'function' ? f.op.fala() : f.op.fala; ui.fala(nome, fala || 'A paz esteja com você, peregrino.'); }
+    CO.servico = true;
+  }
+
+  /* v26: a renúncia feita diante do santo vale para todo o grupo */
+  function receberSacrificio(m) {
+    const HS = HI() && HI().SACRIFICIOS, S = HS && HS[m.tipo];
+    if (!S || !P.pers || J.modo !== 'jogo') return;
+    let r = '';
+    try { r = S.aplicar(); } catch (err) { r = ''; }
+    if (C.anel) C.anel(0xffe6a8, 3, 1.0, 0.8);
+    if (A.bell) { A.bell(392, 0.2); setTimeout(() => A.bell(587, 0.18), 260); }
+    ui.toast(`Diante de ${m.santo || 'o santo'}, o grupo inteiro renunciou. ${r}`);
+    J.salvar();
+  }
+
+  /* v26: a Unção dos Enfermos. Quem cai fica 10 s no chão; um aliado perto pode ungi-lo, e ele se levanta com 10% da vida */
+  const ESPERA_UNCAO = 10;
+  CO.caidoAte = 0; CO.uncaoTimer = null;
+  const uncaoCache = {};
+  function uncaoProxima(x, z) {
+    if (!CO.ativo() || !CO.conectado || J.modo !== 'jogo' || P.dead) return null;
+    let best = null, bd = 2.5;
+    for (const Q of presentes()) { if (!Q.dead || (Q.ungidoT && performance.now() - Q.ungidoT < 3000)) continue; const q = Q.alvo || Q.pos, d = Math.hypot(q.x - x, q.z - z); if (d < bd) { bd = d; best = Q; } }
+    if (!best) return null;
+    const Q = best, i = uncaoCache[Q.slot] || (uncaoCache[Q.slot] = { r: 2.5, pessoal: true });
+    { const q = Q.alvo || Q.pos; i.x = q.x; i.z = q.z; }
+    i.texto = () => (Q.dead && !(Q.ungidoT && performance.now() - Q.ungidoT < 3000)) ? `Dar a Unção dos Enfermos a ${Q.nome || nomeDe(Q.slot)}` : null;
+    i.acao = () => {
+      if (!Q.dead) return;
+      Q.ungidoT = performance.now();
+      CO.enviar({ t: 'uncao', para: Q.slot });
+      if (C.anel) C.anel(0xfff0c0, 2.2, 1.0, 0.75, { x: Q.pos.x, y: Q.pos.y, z: Q.pos.z });
+      if (A.bell) { A.bell(523, 0.14); setTimeout(() => A.bell(784, 0.12), 200); }
+      ui.toast(`Você unge ${Q.nome || nomeDe(Q.slot)} com o óleo dos enfermos: «Por esta santa unção, o Senhor venha em seu auxílio.»`);
+    };
+    return i;
+  }
+  CO.uncaoProxima = uncaoProxima;
+  function receberUncao(m) {
+    if (J.modo !== 'jogo' || !P.dead || !P.pers) return;
+    if (CO.uncaoTimer) { clearTimeout(CO.uncaoTimer); CO.uncaoTimer = null; }
+    CO.caidoAte = 0;
+    P.dead = false; P.hp = Math.max(1, Math.round((P.D ? P.D.maxHp : 100) * 0.1)); P.invuln = Math.max(P.invuln || 0, 2);
+    if (C.resetAcoes) C.resetAcoes();
+    const quem = (REM.get(m.de) && REM.get(m.de).nome) || nomeDe(m.de) || 'Um companheiro';
+    if (C.anel) C.anel(0xfff0c0, 2.4, 1.1, 0.8);
+    if (A.bell) A.bell(659, 0.14);
+    ui.toast(`${quem} lhe deu a Unção dos Enfermos. Você se levanta, ainda fraco: cuide da vida.`);
+    if (CO.convidado()) J.salvar();
+  }
+  const faixaUncao = document.createElement('div'); faixaUncao.id = 'coopUncao'; faixaUncao.hidden = true; document.body.appendChild(faixaUncao);
+  function atualizarFaixaUncao() {
+    const resta = CO.caidoAte ? Math.ceil((CO.caidoAte - performance.now()) / 1000) : 0;
+    const mostrar = J.modo === 'jogo' && P.dead && resta > 0;
+    faixaUncao.hidden = !mostrar;
+    if (mostrar) faixaUncao.textContent = `Você caiu. Um companheiro pode lhe dar a Unção dos Enfermos (fique perto dele): ${resta} s`;
+  }
+
   function receberPresente(m) {
     const it = OV.ITENS[m.id]; if (!it || !P.pers || J.modo !== 'jogo') return;
     const IT = OV.itens, quem = (REM.get(m.de) && REM.get(m.de).nome) || nomeDe(m.de) || 'O seu colega';
@@ -810,7 +917,13 @@
     const vivosAgora = presentes().filter(Q => !Q.dead);
     const comColega = CO.ativo() && vivosAgora.length > 0;
     if (!CO.convidado() && !comColega) return morreu0.call(J);
-    setTimeout(() => {
+    // v26: com alguém de pé, quem cai espera a Unção dos Enfermos antes de despertar no Oratório
+    const espera = vivosAgora.length ? ESPERA_UNCAO : 3;
+    CO.caidoAte = performance.now() + espera * 1000;
+    if (vivosAgora.length) setTimeout(() => { if (P.dead && CO.caidoAte) ui.toast('Você caiu. Se um companheiro chegar perto, pode lhe dar a Unção dos Enfermos.'); }, 900);
+    if (CO.uncaoTimer) clearTimeout(CO.uncaoTimer);
+    CO.uncaoTimer = setTimeout(() => {
+      CO.uncaoTimer = null; CO.caidoAte = 0;
       if (!CO.ativo() || J.modo !== 'jogo' || !P.dead) return;
       const vivos = presentes().filter(Q => !Q.dead);
       const parcial = CO.convidado() || vivos.length > 0;
@@ -818,7 +931,7 @@
       CO.separados = true; ultimaPos = null;
       ui.toast(vivos.length ? `Você caiu e despertou no Oratório. ${listaNomes(vivos.map(Q => Q.slot))} ${vivos.length > 1 ? 'continuam' : 'continua'} lutando: vá ao encontro.` : 'Você caiu e despertou no Oratório. Os seus companheiros também caíram.');
       if (CO.convidado()) J.salvar();
-    }, 3000);
+    }, espera * 1000);
   };
   function irParaColega(cortar, x, z, f) {
     const R = remDe(0);
@@ -844,7 +957,7 @@
   let ultimoTick = performance.now(), haverT = 0;
   setInterval(() => {
     const agora = performance.now(), dt = Math.min(0.5, (agora - ultimoTick) / 1000); ultimoTick = agora;
-    atualizarFaixa(); atualizarTag(true);
+    atualizarFaixa(); atualizarFaixaUncao(); atualizarTag(true);
     if (!CO.ativo() || !CO.conectado) return;
     if (J.modo !== 'jogo' || !P.pers || !CO.on.size) return;
     CO.enviar(meuEstado());
@@ -877,7 +990,10 @@
       case 'fala': if (CO.convidado() && J.modo === 'jogo') mostrarFala(m); break;
       case 'cena': if (CO.convidado() && HI() && J.modo === 'jogo') HI().prologoEspelho(m.qual, CO.colegaNome); break;
       case 'poema': case 'cena_cam': case 'cena_fim': case 'cena_pag': if (CO.convidado()) cenaDoAnfitriao(m); break;
-      case 'entrega': { const H = remDe(0); if (CO.convidado() && J.modo === 'jogo' && OV.aventura && OV.aventura.espelharEntrega && H.alvo && Math.hypot(H.alvo.x - P.pos.x, H.alvo.z - P.pos.z) < 60) OV.aventura.espelharEntrega(Object.assign(m, { quem: H })); } break;
+      case 'entrega': { const H = REM.get(m.de || 0); if (H && J.modo === 'jogo' && m.ori && OV.aventura && OV.aventura.espelharEntrega && H.alvo && Math.hypot(H.alvo.x - P.pos.x, H.alvo.z - P.pos.z) < 60) OV.aventura.espelharEntrega(Object.assign(m, { quem: H })); } break;
+      case 'sacrificio': if (CO.convidado()) receberSacrificio(m); break;
+      case 'barco': if (J.modo === 'jogo' && OV.ajustes && OV.ajustes.colegaAtravessou) OV.ajustes.colegaAtravessou(m.lado, Math.max(-1.5, Math.min(1.5, ((CO.slot || 0) - (m.de || 0)) * 0.75))); break;
+      case 'uncao': receberUncao(m); break;
       case 'alvos': if (CO.convidado()) CO.alvosHost = m.a || {}; break;
       case 'hora': if (CO.convidado() && OV.tempo && Math.abs(OV.tempo.hora - m.h) > 0.08 && Math.abs(OV.tempo.hora - m.h) < 23.9) OV.tempo.definir(m.h); break;
       case 'aviso': if (CO.convidado()) ui.toast(m.txt); break;

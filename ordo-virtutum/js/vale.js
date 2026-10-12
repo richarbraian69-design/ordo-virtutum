@@ -235,7 +235,7 @@
     [-1, 1].forEach(s => parede(seg, h, t, s * (porta / 2 + seg / 2), h / 2, d / 2 - t / 2));
     parede(porta, h - alt, t, 0, alt + (h - alt) / 2, d / 2 - t / 2);
     const verga = mesh(new THREE.BoxGeometry(porta + 0.3, 0.2, t + 0.12), MAT.wood, 0, alt + 0.1, d / 2 - t / 2); g.add(verga);
-    g.add(mesh(new THREE.BoxGeometry(w + 0.25, 1.4, d + 0.25), MAT.colDark, 0, -0.52, 0));
+    g.add(mesh(new THREE.BoxGeometry(w + 0.25, 1.4, d + 0.25), MAT.colDark, 0, -0.58, 0)); // o embasamento fica um pouco abaixo do piso (sem cintilar)
     const piso = new THREE.Mesh(new THREE.PlaneGeometry(w - 2 * t, d - 2 * t), op.piso || MAT.woodL); piso.rotation.x = -Math.PI / 2; piso.position.y = 0.2; piso.receiveShadow = true; g.add(piso);
     const tl = telhado(d, w, op.rh || 2.4, op.roof || MAT.roofTile, mp); tl.rotation.y = Math.PI / 2; tl.position.y = h; g.add(tl);
     const ornato = OV.cenario && !op.semOrnato ? OV.cenario.ornarCasa(g, w, d, h, { x, z, rot, rh: op.rh || 2.4, interior: true, porta, alt, janela: op.luz === false ? MAT.winDark : MAT.winLit, janelasLado: d > 6, estilo: op.estilo, semChamine: op.semChamine || d > 14 }) : null;
@@ -384,7 +384,7 @@
     const igA = casaInterior(0, -31, Math.PI / 2, 24, 16, 11, { mat: MAT.wall, roof: MAT.roof, rh: 6, piso: MAT.stone, nome: 'Igreja abacial', semOrnato: true, semPatamar: true });
     M.IGREJA_ABACIAL = igA;
     const ig = grupo(0, -31, 0, 0);
-    ig.add(mesh(new THREE.BoxGeometry(17, 0.6, 25), MAT.colDark, 0, -0.1, 0));
+    ig.add(mesh(new THREE.BoxGeometry(17, 0.6, 25), MAT.colDark, 0, -0.26, 0)); // v26: abaixo do piso da nave (antes as duas superfícies brigavam e o chão piscava)
     [-6, 0, 6].forEach(z => [-1, 1].forEach(s => {
       if (s > 0 && z === 0) return; // ali fica a porta
       const v = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4), new THREE.MeshBasicMaterial({ map: glassTex(), fog: true }));
@@ -401,6 +401,26 @@
     const cone = new THREE.Mesh(new THREE.ConeGeometry(3.8, 6, 4), MAT.roof); cone.rotation.y = Math.PI / 4; cone.position.y = 22; cone.castShadow = true; tw.add(cone);
     tw.add(mesh(new THREE.BoxGeometry(0.18, 1.6, 0.18), MAT.gold, 0, 25.6, 0)); tw.add(mesh(new THREE.BoxGeometry(0.9, 0.18, 0.18), MAT.gold, 0, 25.9, 0));
     M.caixa(11.5, -20.5, 2.6, 2.6);
+    // v26: os três sinos aparecem nas janelas da torre; os badalos só voltam a eles quando a missão os devolve
+    { const bronze = sm(0x8a6a2a, { metalness: 0.7, roughness: 0.35, emissive: 0x1a1004 }), ferro = MAT.iron;
+      const pts = []; for (let k = 0; k <= 10; k++) { const t = k / 10; pts.push(new THREE.Vector2(0.22 + 0.42 * Math.pow(t, 1.8) + (t > 0.9 ? 0.06 : 0), -t * 0.95)); }
+      const geoSino = new THREE.LatheGeometry(pts, 14);
+      const sinos = [Math.PI / 2, 0, -Math.PI / 2].map(a => {
+        const piv = new THREE.Group(); piv.position.set(Math.sin(a) * 2.62, 17.2, Math.cos(a) * 2.62); tw.add(piv);
+        piv.add(mesh(new THREE.BoxGeometry(1.5, 0.12, 0.12), MAT.wood, 0, 0.12, 0));
+        const corpo = new THREE.Mesh(geoSino, bronze); corpo.castShadow = true; piv.add(corpo);
+        const bad = new THREE.Group(); bad.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.62, 6), ferro, 0, -0.38, 0)); bad.add(mesh(new THREE.SphereGeometry(0.11, 8, 6), ferro, 0, -0.74, 0));
+        bad.visible = false; piv.add(bad);
+        return { piv, bad, ph: a };
+      });
+      let tocou = null;
+      M.animados.push((dt, t) => {
+        const f = OV.jogo && OV.jogo.prog && OV.jogo.prog.flags, ok = !!(f && f.sinos);
+        if (ok && tocou === false) tocou = t; if (tocou === null || !ok) tocou = ok ? -99 : false;
+        const bal = tocou > 0 && t - tocou < 10 ? Math.sin((t - tocou) * 3.2) * 0.45 * (1 - (t - tocou) / 10) : 0;
+        sinos.forEach((b, i) => { b.bad.visible = ok; b.piv.rotation.x = bal * (i % 2 ? -1 : 1); b.bad.rotation.x = bal * 0.6; });
+      });
+    }
     M.interativo(15.2, -20.5, 2.6, () => OV.missoes ? OV.missoes.textoObjeto('torre') : 'Olhar a torre do sino', () => OV.missoes ? OV.missoes.objeto('torre') : OV.ui.fala('Torre do sino', 'Os sinos estão mudos.'));
     // dormitório
     if (M.patamar) M.patamar(-28, -6, 0, 4.9, 13.4, 0, 3);

@@ -88,11 +88,15 @@
     fala: () => 'O rio está fundo e frio. Nadar, só os peixes. Quer atravessar? É de graça: o caminho de Deus não se cobra.' });
   let travessia = null;
   AJ.navegando = false;
-  function atravessar(de) {
+  // v26: o barco leva o grupo inteiro: quem está no cais embarca junto (cada um num banco)
+  AJ.aoTravessia = null;
+  function atravessar(de, lugar, doColega) {
     if (travessia) return;
     const para = de === 'o' ? 'l' : 'o', x0 = de === 'o' ? XR - 3.4 : XR + 3.4, x1 = para === 'o' ? XR - 3.4 : XR + 3.4;
+    if (OV.biblicas && OV.biblicas.desmontar) OV.biblicas.desmontar();
     pousar(de); AJ.navegando = true;
-    travessia = { t: 0, dur: 4.2, x0, x1, para };
+    travessia = { t: 0, dur: 4.2, x0, x1, para, off: lugar || 0 };
+    if (!doColega && AJ.aoTravessia) AJ.aoTravessia(de);
     if (OV.cenas) OV.cenas.iniciar({ alvo: () => new THREE.Vector3(barco.position.x, 0.6, ZB), raio: 9, altura: 4, giro: 0.12, olhar: 0.8, barco: true });
     if (A.bell) A.bell(392, 0.06);
   }
@@ -101,17 +105,24 @@
     const tr = travessia; tr.t += dt;
     const k = Math.min(1, tr.t / tr.dur), e = k * k * (3 - 2 * k);
     barco.position.x = tr.x0 + (tr.x1 - tr.x0) * e; barco.position.y = -0.55 + Math.sin(tr.t * 2.2) * 0.04; barco.rotation.z = Math.sin(tr.t * 1.7) * 0.03;
-    if (OV.combate) OV.combate.posicionar(barco.position.x, ZB + 0.6, tr.x1 > tr.x0 ? Math.PI / 2 : -Math.PI / 2);
+    if (OV.combate) OV.combate.posicionar(barco.position.x + tr.off, ZB + 0.6 - Math.abs(tr.off) * 0.5, tr.x1 > tr.x0 ? Math.PI / 2 : -Math.PI / 2);
     P.pos.y = barco.position.y + 0.5; if (P.heroi) P.heroi.g.position.y = P.pos.y;
     P.invuln = Math.max(P.invuln || 0, 0.3);
     if (k >= 1) {
       const m = MARGEM[tr.para]; travessia = null; AJ.navegando = false; ladoBarco = tr.para;
-      if (OV.combate) OV.combate.posicionar(m.x, m.z, tr.para === 'l' ? Math.PI / 2 : -Math.PI / 2);
+      if (OV.combate) OV.combate.posicionar(m.x, m.z + tr.off, tr.para === 'l' ? Math.PI / 2 : -Math.PI / 2);
       if (OV.cenas && OV.cenas.ativa && OV.cenas.ativa.barco) OV.cenas.encerrar();
       if (OV.jogo) OV.jogo.mudouLugar();
     }
   });
   AJ.travado = () => !!travessia;
-  M.interativo(MARGEM.o.x, ZB, 2.2, () => travessia ? null : 'Atravessar o rio no barco de Simeão', () => { if (ladoBarco !== 'o') pousar('o'); atravessar('o'); });
-  M.interativo(MARGEM.l.x, ZB, 2.2, () => travessia ? null : 'Atravessar o rio de volta', () => { if (ladoBarco !== 'l') pousar('l'); atravessar('l'); });
+  const caisO = M.interativo(MARGEM.o.x, ZB, 2.2, () => travessia ? null : 'Atravessar o rio no barco de Simeão', () => { if (ladoBarco !== 'o') pousar('o'); atravessar('o'); });
+  const caisL = M.interativo(MARGEM.l.x, ZB, 2.2, () => travessia ? null : 'Atravessar o rio de volta', () => { if (ladoBarco !== 'l') pousar('l'); atravessar('l'); });
+  if (caisO) caisO.pessoal = true; if (caisL) caisL.pessoal = true; // no co-op, o convidado também chama o barco
+  // um colega embarcou: quem está perto do mesmo cais vai junto
+  AJ.colegaAtravessou = function (de, lugar) {
+    const P = OV.P, m = MARGEM[de]; if (!m || travessia || P.dead || Math.hypot(P.pos.x - m.x, P.pos.z - m.z) > 25) return false;
+    if (OV.ui) OV.ui.toast('Você embarca junto no barco de Simeão.');
+    atravessar(de, lugar, true); return true;
+  };
 })(window.OV);

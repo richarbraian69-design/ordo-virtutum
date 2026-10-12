@@ -99,7 +99,7 @@
     return { x: pl.x, z: pl.z, via: rp === 'cripta' ? 'vale' : rp };
   };
   const NOME_REG = { vale: 'Vale de Santa Sabina', porto: 'Portos do Festim', minas: 'Minas de Mamom', corte: 'Corte das Máscaras', muros: 'Vila dos Muros', marca: 'Marca Ardente', monte: 'Monte Santo', cripta: 'cripta' };
-  R.textoVia = a => !a || !a.via ? '' : a.via === 'saida' ? 'Suba da cripta para o mosteiro.' : a.via === 'cripta' ? 'Desça pela porta da cripta, a leste do claustro.' : `Siga até a placa da estrada e viaje para ${NOME_REG[a.via] === 'Vale de Santa Sabina' ? 'o ' : 'os '}${NOME_REG[a.via]}.`.replace('os Minas', 'as Minas').replace('os Corte', 'a Corte');
+  R.textoVia = a => !a || !a.via ? '' : a.via === 'saida' ? 'O objetivo fica lá fora: saia da cripta pela escada do ossuário.' : a.via === 'cripta' ? 'Desça pela porta da cripta, a leste do claustro.' : `Siga até a placa da estrada e viaje para ${NOME_REG[a.via] === 'Vale de Santa Sabina' ? 'o ' : 'os '}${NOME_REG[a.via]}.`.replace('os Minas', 'as Minas').replace('os Corte', 'a Corte');
 
   /* ================= A MISSÃO RASTREADA ================= */
   R.ativas = () => { const p = prog(); if (!p || !p.missoes) return []; return Object.keys(MIS()).filter(id => MS.ativa(id)); };

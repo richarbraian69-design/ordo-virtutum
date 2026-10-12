@@ -252,7 +252,7 @@
      O LIVRO DO ABADE
      =================================================================== */
   MS.MIS.livro = { ato: 1, nome: 'O Livro do Abade', tipo: 'p', xp: 80,
-    etapas: ['Leia o livro do Abade Anselmo, aberto sobre a estante da Igreja de São Roque, junto do altar.', 'Converse com o Padre Tomé sobre o que o livro diz.'],
+    etapas: ['Leia o livro do Abade Anselmo, aberto sobre a estante da Igreja de São Roque, a igreja do Padre Tomé na vila (não a do mosteiro), junto do altar.', 'Converse com o Padre Tomé sobre o que o livro diz.'],
     alvos: [() => estante(), () => { const f = M.figuras.tome; return f ? { x: f.x, z: f.z } : null; }] };
   let estanteP = null;
   const estante = () => estanteP;
@@ -519,7 +519,7 @@
     return {
       ...(exp ? { gr: { quem: santo, txt: exp, prox: depois } } : {}),
       s: { quem: santo, txt: pedido, opc: [
-        { t: () => S.oferta(), ef: () => { const r = S.aplicar(); F()['sacrificio_' + tipo] = true; aoAceitar(); C().anel(0xffe6a8, 3, 1.0, 0.8); if (A.bell) { A.bell(392, 0.2); setTimeout(() => A.bell(587, 0.18), 260); } setTimeout(() => ui.toast(r), 400); if (OV.jogo) OV.jogo.salvar(); }, ir: exp ? 'gr' : depois },
+        { t: () => S.oferta(), ef: () => { const r = S.aplicar(); F()['sacrificio_' + tipo] = true; if (HI.aoSacrificio) HI.aoSacrificio(tipo, santo); aoAceitar(); C().anel(0xffe6a8, 3, 1.0, 0.8); if (A.bell) { A.bell(392, 0.2); setTimeout(() => A.bell(587, 0.18), 260); } setTimeout(() => ui.toast(r), 400); if (OV.jogo) OV.jogo.salvar(); }, ir: exp ? 'gr' : depois },
         { t: 'Não posso oferecer isso.', ir: 'n' }] },
       n: { quem: santo, txt: recusa || 'Deus não força ninguém. Vá em paz: a luta será mais dura, mas você não estará só.', prox: depois }
     };

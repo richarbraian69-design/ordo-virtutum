@@ -103,6 +103,11 @@
     Object.entries(fig).forEach(([id, x]) => { if (x.rodada !== M.rodadaFig && !PAS[id] && !x.op.santo) x.ir(x.x0, x.z0, x.rot0); });
   }
   MS.aplicarMundo = () => aplicarMundo();
+  // v26: no co-op, quem cai durante a vigília desperta junto de Santo Antão (e não no Oratório da vila)
+  MS.pontoGrupo = () => {
+    if (!F().vigilia_ativa || !M.SITIO || !M.SITIO.ermida) return null;
+    const e = M.SITIO.ermida; return { x: e.x - 2.5, z: e.z + 3.5, f: Math.PI, nome: 'junto de Santo Antão', msg: 'Você desperta junto de Santo Antão. A vigília continua.' };
+  };
   /* v24: a memória do chefe. Quem cai na luta volta e encontra o chefe ferido como o deixou (com um fôlego a mais),
      sem a cena de entrada de novo. Vale para todos os chefões. */
   const vivoE = e => e.state !== 'dead' && e.state !== 'liberto' && !e.removed;
@@ -283,14 +288,14 @@
     } });
   }
   function abrirCripta() { setTimeout(() => { MS.iniciar('m5'); ui.toast('O portão da cripta de Santa Sabina se abriu.'); }, 1200); }
-  function iniciarVigilia() { vigilia.ativa = true; vigilia.onda = 0; vigilia.espera = 1.5; if (OV.tempo && !OV.tempo.ehNoite()) OV.tempo.definir(21); ui.clarao('#0a0608'); ui.toast('A noite cai sobre o rochedo...'); }
+  function iniciarVigilia() { vigilia.ativa = true; F().vigilia_ativa = true; vigilia.onda = 0; vigilia.espera = 1.5; if (OV.tempo && !OV.tempo.ehNoite()) OV.tempo.definir(21); ui.clarao('#0a0608'); ui.toast('A noite cai sobre o rochedo...'); }
   function atualizarVigilia(dt) {
     if (!vigilia.ativa) return;
     const vivos = I.porTag('vigilia').filter(e => e.state !== 'dead' && !e.removed);
     if (vivos.length) return;
     vigilia.espera -= dt; if (vigilia.espera > 0) return;
     if (vigilia.onda >= 3) {
-      vigilia.ativa = false;
+      vigilia.ativa = false; F().vigilia_ativa = false;
       if (P.pers.virt.fe < OV.MAX_VIRTUDE) P.pers.virt.fe++;
       OV.combate.recalcular(); MS.ato('fortaleza');
       ui.banner('A aurora'); ui.toast('A aurora chega. Sua Fé se fortaleceu (+1).');
@@ -308,6 +313,10 @@
 
   /* ================= O CHEFE E O FIM DO ATO ================= */
   let prova = false;
+  // v26: o Abade libertado fica caído, de joelhos, até o peregrino ir até ele (nenhuma tecla apertada sem querer decide por ele)
+  let abadeCaido = null;
+  const ajudarAbade = M.interativo(0, 0, 2.6, () => abadeCaido && !abadeCaido.removed && !F().chefe_resolvido && !prova ? 'Ajudar o Abade Anselmo a se levantar' : null, () => { const e = abadeCaido; abadeCaido = null; if (e) finalAbade(e); });
+  MS.ganchos.evento.push(tipo => { if (tipo === 'renascer') abadeCaido = null; return false; });
   function finalAbade(e) {
     D.abrir({ inicio: 'a', nos: {
       a: { quem: 'Abade Anselmo', txt: 'Eu... eu desisti de tudo. Rezar, trabalhar, esperar... O demônio ainda está agarrado em mim. Eu o sinto.', prox: 'b' },
@@ -346,7 +355,9 @@
     if (p) { p.destino = null; p.mostrar(true); const q = ig.W(0, -ig.hd + 2.9); p.mover(q.x, q.z, vira(q, banco)); }
     const meio = ig.W(0, -ig.hd * 0.3), y = M.altura(ig.x, ig.z) + 1.6;
     const cam = { alvo: new THREE.Vector3(meio.x, y, meio.z), raio: Math.max(2.6, Math.min(ig.hd * 0.9, ig.hd - 1.2)), altura: 1.8, olhar: 0.5, giro: 0.02, ang0: ig.rot + 0.18 };
-    if (OV.cenas && OV.cenas.contar) OV.cenas.contar(linhas, cam, fim); else D.falas(linhas, fim);
+    // v26: terminada a Missa, o padre volta andando para a igreja dele (antes ficava na igreja da Missa, sem explicação)
+    const fim2 = () => { if (p && p.x0 !== undefined && Math.hypot(p.x0 - ig.x, p.z0 - ig.z) > Math.max(ig.hw, ig.hd) + 2) p.ir(p.x0, p.z0, p.rot0); if (fim) fim(); };
+    if (OV.cenas && OV.cenas.contar) OV.cenas.contar(linhas, cam, fim2); else D.falas(linhas, fim2);
   };
   // v24: quem entra na igreja na hora da Missa não precisa achar a porta de novo: a Missa começa lá dentro
   MS.missas = [];
@@ -549,10 +560,11 @@
     }
     else if (tipo === 'liberto') {
       if (x.tag === 'afonso') abrirAfonso(x);
-      else if (x.tag === 'abade') finalAbade(x);
+      else if (x.tag === 'abade') { abadeCaido = x; ajudarAbade.x = x.g.position.x; ajudarAbade.z = x.g.position.z; ui.toast('O Abade Anselmo cai de joelhos, livre do demônio por um instante. Vá até ele e ajude-o a se levantar.'); }
       else { x.sumir = true; ui.toast('O possesso foi libertado e foge para a vila.'); }
     }
     else if (tipo === 'renascer') {
+      F().vigilia_ativa = false;
       if (vigilia.ativa) { vigilia.ativa = false; MS.avancar('m4', 0); st('m4').e = 0; ui.toast('A vigília foi interrompida. Volte à cruz quando estiver pronto.'); }
       prova = false;
       if (!F().chefe_resolvido) { CR.resetarChefe(); if (MS.ativa('m5') && MS.etapa('m5') === 2) st('m5').e = 1; }

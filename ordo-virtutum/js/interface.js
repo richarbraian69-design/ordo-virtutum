@@ -10,19 +10,34 @@
   /* ---- avisos: cada um na sua tira de papel, empilhados, com tempo para ler ---- */
   const lastToast = {}, filaToast = [];
   const MAX_TOAST = 3;
-  function mostrarToast(msg) {
+  function mostrarToast(msg, luta) {
     const box = $('toast');
     const t = document.createElement('div'); t.className = 't'; t.textContent = msg;
     box.appendChild(t); void t.offsetWidth; t.classList.add('on');
-    const dur = Math.min(11000, 5200 + msg.length * 55); // tempo de sobra para ler
+    const dur = Math.min(11000, 5200 + msg.length * 55) * (luta ? 0.6 : 1); // tempo de sobra para ler (na luta, menos)
     setTimeout(() => { t.classList.remove('on'); t.classList.add('sai'); setTimeout(() => { t.remove(); if (filaToast.length) mostrarToast(filaToast.shift()); }, 450); }, dur);
   }
+  /* v26: no meio da luta, só o essencial. Os avisos de recompensa, missão, casa e itens esperam a luta acabar;
+     e na luta aparecem no máximo dois avisos de cada vez, que somem mais depressa */
+  const ADIAVEL = /denári|Recebido|Nova peça|Nova missão|Missão concluída|encontrou|aprendeu o nome|foi guardad|guardado no baú|Contrato|Diário|Bem-vindo|para a casa|Você recebeu|Afinação|insígnia|título|agora você é|Rel[ií]quia:/i;
+  const EM_LUTA = new Set(['chase', 'windup', 'recover', 'investida', 'stun']);
+  let combateT = 0, combateV = false;
+  ui.emCombate = function () {
+    const now = performance.now(); if (now - combateT < 250) return combateV; combateT = now;
+    const I = OV.inimigos, P = OV.P;
+    combateV = !!(I && I.lista && P && P.pos && OV.jogo && OV.jogo.modo === 'jogo' && !P.dead && I.lista.some(e => !e.removed && EM_LUTA.has(e.state) && e.hp > 0 && e.g && Math.hypot(e.g.position.x - P.pos.x, e.g.position.z - P.pos.z) < 28));
+    return combateV;
+  };
+  const adiados = [];
+  setInterval(() => { if (adiados.length && !ui.emCombate()) { const l = adiados.splice(0); l.forEach((m, i) => setTimeout(() => ui.toast(m), i * 700)); } }, 1000);
   ui.toast = function (msg) {
     if (!msg) return;
-    const now = performance.now(); if (lastToast[msg] && now - lastToast[msg] < 1500) return; lastToast[msg] = now;
+    const luta = ui.emCombate();
+    if (luta && ADIAVEL.test(msg)) { if (!adiados.includes(msg) && adiados.length < 8) adiados.push(msg); return; }
+    const now = performance.now(); if (lastToast[msg] && now - lastToast[msg] < (luta ? 4000 : 1500)) return; lastToast[msg] = now;
     const box = $('toast');
-    if (box.querySelectorAll('.t:not(.sai)').length >= MAX_TOAST) { if (!filaToast.includes(msg)) filaToast.push(msg); return; }
-    mostrarToast(msg);
+    if (box.querySelectorAll('.t:not(.sai)').length >= (luta ? 2 : MAX_TOAST)) { if (!filaToast.includes(msg)) { if (luta && filaToast.length >= 2) filaToast.shift(); filaToast.push(msg); } return; }
+    mostrarToast(msg, luta);
   };
   ui.limparToasts = function () { filaToast.length = 0; $('toast').innerHTML = ''; };
 
